@@ -1,7 +1,9 @@
-# Pwsh.ai - test build — AI Chatbot with Voice & PowerShell
+# <img width="34" height="34" alt="Icon" src="https://github.com/user-attachments/assets/77c482bb-5b48-4f48-b492-5ad213764dee" /> Pwsh.ai — AI Chatbot with Voice & PowerShell
 
-A lightweight but powerfull AI chat UI with optional voice input and the ability to run PowerShell commands. 
+A lightweight but powerfull AI chat UI with optional voice input and the ability to run PowerShell commands.
 🚀 Made with [WebWrapperNet](https://github.com/JoaoVKS/WebWrapperNet).
+
+This project is in very early development. Expect breaking changes, missing features, and the occasional explosion (bugs). Use at your own risk!
 
 ## Features
 - Voice input using the Web Speech API (start/stop and auto-send on silence).
