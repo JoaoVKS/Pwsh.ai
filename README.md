@@ -1,4 +1,4 @@
-# <img width="34" height="34" alt="Icon" src="https://github.com/user-attachments/assets/77c482bb-5b48-4f48-b492-5ad213764dee" /> Pwsh.ai — AI Chatbot with Voice & PowerShell
+# <img width="34" height="34" alt="Icon" src="https://github.com/user-attachments/assets/77c482bb-5b48-4f48-b492-5ad213764dee" /> Pwsh.ai - AI Chatbot with Voice & PowerShell
 
 A lightweight but powerfull AI chat UI with optional voice input and the ability to run PowerShell commands.
 🚀 Made with [WebWrapperNet](https://github.com/JoaoVKS/WebWrapperNet).
