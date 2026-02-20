@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>   ai.POWERshell</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" type="image/ico" href="icon.ico">
+    <title>Pwsh.AI</title>
+    <link rel="stylesheet" href="style/style.css">
+    <link rel="icon" type="image/ico" href="assets/Icon.png">
 </head>
 <body>
     <header class="main-header">
-        <h1>>_ ai.POWERshell</h1>
+        <h1>Pwsh.AI <img class="PwshLogo" src="assets/Icon.png" alt="Clippy"> </h1>
         <div class="header-right">
-            <div class="model-indicator" id="model-indicator" title="Modelo ativo">
+            <div class="model-indicator" id="model-indicator" title="Active Model">
                 <span class="model-provider-badge" id="model-provider-label">—</span>
-                <span class="model-name-label" id="model-name-label">carregando...</span>
+                <span class="model-name-label" id="model-name-label">Loading...</span>
             </div>
-            <button class="icon-btn settings-btn" id="settings-btn" title="Configurações">
+            <button class="icon-btn settings-btn" id="settings-btn" title="Settings">
                 <p style="font-size: 20px;">⚙️</p>
             </button>
         </div>
@@ -25,8 +25,8 @@
     <div class="modal-overlay" id="settings-modal" hidden>
         <div class="modal-box">
             <div class="modal-header">
-                <h2>⚙️ Configurações</h2>
-                <button class="modal-close-btn" id="modal-close-btn" title="Fechar">✕</button>
+                <h2>⚙️ Settings</h2>
+                <button class="modal-close-btn" id="modal-close-btn" title="Close">✕</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -41,7 +41,7 @@
                     <label>API Key</label>
                     <div class="input-reveal">
                         <input type="password" id="cfg-gemini-apikey" placeholder="AIza..." autocomplete="off" />
-                        <button type="button" class="reveal-btn" data-target="cfg-gemini-apikey" title="Mostrar/ocultar">
+                        <button type="button" class="reveal-btn" data-target="cfg-gemini-apikey" title="Show/Hide">
                             <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
@@ -56,7 +56,7 @@
                     <label>API Key</label>
                     <div class="input-reveal">
                         <input type="password" id="cfg-openrouter-apikey" placeholder="sk-or-v1-..." autocomplete="off" />
-                        <button type="button" class="reveal-btn" data-target="cfg-openrouter-apikey" title="Mostrar/ocultar">
+                        <button type="button" class="reveal-btn" data-target="cfg-openrouter-apikey" title="Show/Hide">
                             <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
@@ -66,19 +66,19 @@
                     <label>Model</label>
                     <input type="text" id="cfg-openrouter-model" placeholder="arcee-ai/..." />
                 </div>
-                <div class="form-section-title">Comportamento</div>
+                <div class="form-section-title">Behavior</div>
                 <div class="form-group">
                     <label>System Prompt</label>
-                    <textarea id="cfg-systemprompt" rows="8" placeholder="Instruções de sistema para o agente..."></textarea>
+                    <textarea id="cfg-systemprompt" rows="8" placeholder="System instructions for the agent..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-cancel" id="btn-modal-cancel">Cancelar</button>
+                <button class="btn-cancel" id="btn-modal-cancel">Cancel</button>
                 <button class="btn-save" id="btn-modal-save">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px">
                         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                     </svg>
-                    Salvar &amp; Reiniciar
+                    Save &amp; Restart
                 </button>
             </div>
         </div>
@@ -94,7 +94,7 @@
             <!-- Voice visualizer overlay -->
             <div class="voice-visualizer" id="voice-visualizer">
                 <canvas id="voice-canvas"></canvas>
-                <span class="voice-label">Ouvindo...</span>
+                <span class="voice-label">Listening...</span>
             </div>
 
             <!-- Image preview strip -->
@@ -106,7 +106,7 @@
                 <input type="file" id="file-input" accept="image/*" multiple hidden />
 
                 <!-- Attach image button -->
-                <button class="icon-btn" id="attach-btn" title="Anexar imagem">
+                <button class="icon-btn" id="attach-btn" title="Attach Image">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                         <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -115,10 +115,10 @@
                 </button>
 
                 <!-- Text input -->
-                <textarea id="message-input" placeholder="Digite sua mensagem..." rows="1"></textarea>
+                <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
 
                 <!-- Mic button -->
-                <button class="icon-btn" id="mic-btn" title="Reconhecimento de voz">
+                <button class="icon-btn" id="mic-btn" title="Voice Recognition">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -128,7 +128,7 @@
                 </button>
 
                 <!-- Send button -->
-                <button class="icon-btn send-btn" id="send-btn" title="Enviar">
+                <button class="icon-btn send-btn" id="send-btn" title="Send">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="22" y1="2" x2="11" y2="13"/>
                         <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -137,7 +137,7 @@
             </div>
         </div>
     </div>
-
+    <div class="resize-handle" id="resize-handle"></div>
     <!-- CMD Side Panel -->
     <div class="cmd-panel" id="cmd-panel">
         <div class="cmd-panel-header">
@@ -154,7 +154,7 @@
     </div>
 
     <!-- Load dependencies -->
-    <script src="webWrap.js"></script>
-    <script src="app.js"></script>
+    <script src="scripts/webWrap.js"></script>
+    <script src="scripts/app.js"></script>
 </body>
 </html>

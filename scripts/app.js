@@ -3,10 +3,15 @@
 let config = {};
 document.addEventListener('DOMContentLoaded', () => {
     (async () => {
+        if (typeof webWrap === 'undefined') {
+        document.body.innerHTML = '<h2 style="color:red;padding:2rem;">Error: webWrap.js not found</h2>';
+        return;
+    }
     try {
-        const response = await fetch('/config.json');
+        const response = await fetch('./scripts/config.json');
         config = await response.json();
         console.log(config);
+        checkConfig();
         updateModelIndicator();
         } catch (error) {
             console.error('Could not load JSON:', error);
@@ -15,7 +20,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     AssistantApp.init();
     SettingsModal.init();
+    initClippyEasterEgg();
+    initResizeHandle();
 });
+
+
+// ================================
+//  Config Validation
+// ================================
+function checkConfig() {
+    const ai = config?.ai || {};
+    const geminiKey = ai.gemini?.apiKey || '';
+    const openrouterKey = ai.openrouter?.apiKey || '';
+    
+    const isGeminiDefault = !geminiKey || geminiKey === 'YOUR_GEMINI_API_KEY';
+    const isOpenrouterDefault = !openrouterKey || openrouterKey === 'YOUR_OPENROUTER_API_KEY';
+    
+    // If both API keys are empty or have default values, open the configuration modal
+    if (isGeminiDefault && isOpenrouterDefault) {
+        // Both unconfigured — force user to configure
+        setTimeout(() => SettingsModal.openModal(), 100);
+    } else if (isGeminiDefault) {
+        // Auto-fallback: use OpenRouter since Gemini is not configured
+        config.ai.provider = 'openrouter';
+        updateModelIndicator();
+    } else if (isOpenrouterDefault) {
+        // Auto-fallback: use Gemini since OpenRouter is not configured
+        config.ai.provider = 'gemini';
+        updateModelIndicator();
+    }
+}
 
 // ================================
 //  Model Indicator
@@ -134,7 +168,7 @@ const SettingsModal = (() => {
 
             const psCmd = [
                 `$raw = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64}'))`,
-                `[System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath('./config.json'), $raw, [System.Text.Encoding]::UTF8)`,
+                `[System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath('./scripts/config.json'), $raw, [System.Text.Encoding]::UTF8)`,
                 `Write-Output 'CFG_SAVED'`
             ].join('; ');
 
@@ -149,7 +183,7 @@ const SettingsModal = (() => {
         AssistantApp.killSession();
         await waitMs(300);
         try {
-            const response = await fetch('/config.json');
+            const response = await fetch('./scripts/config.json');
             config = await response.json();
         }
         catch (error)
@@ -164,7 +198,7 @@ const SettingsModal = (() => {
         return new Promise(r => setTimeout(r, ms));
     }
 
-    return { init };
+    return { init, openModal };
 })();
 
 const AssistantApp = (() => {
@@ -344,6 +378,7 @@ const AssistantApp = (() => {
         recognition.onstart = () => {
             isRecording = true;
             hasVoiceContent = false;
+            finalTranscript = '';
             dom.micBtn.classList.add('recording');
             startVisualizer();
         };
@@ -578,7 +613,7 @@ const AssistantApp = (() => {
                 decisionEl.className = `decision-badge decision-${decision.toLowerCase()}`;
                 
                 const icons = { 'CONTINUE': '✅', 'WAIT': '⏸️', 'STOP': '⛔' };
-                const labels = { 'CONTINUE': 'Feito', 'WAIT': 'Aguardar', 'STOP': 'Parar' };
+                const labels = { 'CONTINUE': 'Done', 'WAIT': 'Wait', 'STOP': 'Stop' };
                 
                 const iconSpan = document.createElement('span');
                 iconSpan.className = 'decision-icon';
@@ -649,6 +684,12 @@ const AssistantApp = (() => {
 
         // Push to conversation history (stored in Gemini format, converted on-the-fly for OpenRouter)
         conversationHistory.push({ role: 'user', parts });
+
+        // Trim history to avoid memory/token limits (keep system context + last N turns)
+        const MAX_TURNS = 50;
+        if (conversationHistory.length > MAX_TURNS) {
+            conversationHistory = conversationHistory.slice(-MAX_TURNS);
+        }
 
         // Reset input
         dom.messageInput.value = '';
@@ -1030,7 +1071,7 @@ const AssistantApp = (() => {
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
-            <span>Envie uma mensagem para começar</span>
+            <span>Send a message to get started!</span>
         `;
         dom.chatArea.appendChild(div);
     }
@@ -1361,3 +1402,97 @@ const AssistantApp = (() => {
         }
     };
 })();
+
+// ================================
+//  Resizable Panel Divider
+// ================================
+function initResizeHandle() {
+    const handle = document.getElementById('resize-handle');
+    if (!handle) return;
+
+    const layout = document.querySelector('.app-layout');
+    const leftPanel = document.querySelector('.assistant-wrapper');
+    const rightPanel = document.querySelector('.cmd-panel');
+
+    if (!layout || !leftPanel || !rightPanel) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let startLeftWidth = 0;
+
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isDragging = true;
+        startX = e.clientX;
+        startLeftWidth = leftPanel.getBoundingClientRect().width;
+
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const layoutRect = layout.getBoundingClientRect();
+        const dx = e.clientX - startX;
+        const newLeftWidth = startLeftWidth + dx;
+
+        const minLeft = 300;
+        const minRight = 200;
+        const maxLeftWidth = layoutRect.width - minRight - handle.offsetWidth;
+
+        const clampedWidth = Math.max(minLeft, Math.min(newLeftWidth, maxLeftWidth));
+        const leftPercent = (clampedWidth / layoutRect.width) * 100;
+
+        leftPanel.style.flex = 'none';
+        leftPanel.style.width = leftPercent + '%';
+
+        rightPanel.style.flex = '1';
+        rightPanel.style.minWidth = minRight + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    });
+
+    // Double-click to reset to 50/50
+    handle.addEventListener('dblclick', () => {
+        leftPanel.style.flex = '1';
+        leftPanel.style.width = '';
+        rightPanel.style.flex = '1';
+        rightPanel.style.minWidth = '';
+    });
+}
+
+// ================================
+//  Clippy Easter Egg
+// ================================
+function initClippyEasterEgg() {
+    const clippy = document.querySelector('.PwshLogo');
+    if (!clippy) return;
+
+    let clicks = [];
+    clippy.addEventListener('click', () => {
+        const now = Date.now();
+        clicks.push(now);
+        // Keep only clicks within last 3 seconds
+        clicks = clicks.filter(t => now - t <= 3000);
+
+        if (clicks.length >= 2) {
+            clicks = [];
+            clippy.classList.remove('jump-spin');
+            // Force reflow so re-adding the class restarts the animation
+            void clippy.offsetWidth;
+            clippy.classList.add('jump-spin');
+            clippy.addEventListener('animationend', () => {
+                clippy.classList.remove('jump-spin');
+            }, { once: true });
+        }
+    });
+}
+
