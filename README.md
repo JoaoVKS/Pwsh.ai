@@ -10,7 +10,7 @@ This project is in very early development. Expect breaking changes, missing feat
 
 OR
 
-1. Run this on the PowerShell:<pre>Invoke-WebRequest -Uri "https://github.com/JoaoVKS/Pwsh.ai/releases/download/v1.0.0/Pwsh.AI_release.zip" -OutFile "temp.zip"; Expand-Archive -Path "temp.zip" -DestinationPath "."; Remove-Item "temp.zip"</pre>
+1. Run this on PowerShell:<pre>Invoke-WebRequest -Uri "https://github.com/JoaoVKS/Pwsh.ai/releases/download/v1.0.0/Pwsh.AI_release.zip" -OutFile "temp.zip"; Expand-Archive -Path "temp.zip" -DestinationPath "."; Remove-Item "temp.zip"</pre>
 2. Run the `Pwsh.AI.exe`
 
 ## Features
