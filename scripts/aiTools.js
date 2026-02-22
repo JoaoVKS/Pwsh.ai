@@ -5,48 +5,84 @@ class AiTools {
         this.config = config;
     }
 
+    /**
+     * Returns the list of tools in OpenAI/OpenRouter JSON Schema format.
+     * PwshExec is defined here but dispatched externally by executeNativeToolCalls in app.js.
+     */
     ListTools() {
         return [
             {
-                functionName: "CurlFetch",
-                description: "Performs an HTTP request described by a curl command string and returns the response body.",
-                format: "<TOOL name=\"CurlFetch\">curl command string here</TOOL>"
+                type: "function",
+                function: {
+                    name: "CurlFetch",
+                    description: "Performs an HTTP/Web request described by a curl command string and returns the response body",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            curl: {
+                                type: "string",
+                                description: "Full curl command string (e.g. curl -X GET https://...)"
+                            }
+                        },
+                        required: ["curl"]
+                    }
+                }
             },
             {
-                functionName: "WebSearch",
-                description: "Performs a web search and returns the top results.",
-                format: "<TOOL name=\"WebSearch\">search query here</TOOL>",
+                type: "function",
+                function: {
+                    name: "WebSearch",
+                    description: "Performs a web search using Brave Search and returns the top results including news",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            search_query: {
+                                type: "string",
+                                description: "Search query string"
+                            }
+                        },
+                        required: ["search_query"]
+                    }
+                }
             },
+            {
+                type: "function",
+                function: {
+                    name: "PwshExec",
+                    description: "Executes a PowerShell command on the Windows host and returns the real-time output. Use for filesystem operations, system information, running scripts, registry access, and any Windows-specific tasks.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            command: {
+                                type: "string",
+                                description: "PowerShell command string to execute (wrap paths in double quotes)"
+                            }
+                        },
+                        required: ["command"]
+                    }
+                }
+            }
         ];
     }
 
     /**
-     * Returns a system-prompt block describing all available tools and how to invoke them.
-     * The template is read from config.ai.toolsPrompt; use {tools} as a placeholder
-     * for the dynamically-generated tool list.
+     * Execute a tool by name with the provided parsed arguments object.
+     * PwshExec is NOT handled here — it is dispatched directly by executeNativeToolCalls in app.js
+     * (requires UI confirmation gate and real-time streaming output).
+     * @param {string} functionName
+     * @param {object|string} args - Parsed JSON arguments object from the tool call
+     * @returns {Promise<string>}
      */
-    getToolsSystemPrompt() {
-        const tools = this.ListTools();
-        if (!tools.length) return '';
-
-        const descriptions = tools.map(t => {
-            return `• ${t.functionName}\n  Description: ${t.description}\n  Format: ${t.format}`;
-        }).join('\n\n');
-
-        const template = this.config?.ai?.toolsPrompt ?? '';
-        return template.replace('{tools}', descriptions);
-    }
-
-    /**
-     * Execute a tool by name with the provided content string.
-     * Returns a Promise that resolves to the result string.
-     */
-    async ToolCall(functionName, content) {
+    async ToolCall(functionName, args) {
         switch (functionName) {
-            case "CurlFetch":
-                return this.handleCurlFetch(content);
-            case "WebSearch":
-                return this.handleWebSearch(content);
+            case "CurlFetch": {
+                const curlStr = (typeof args === 'string') ? args : (args?.curl ?? JSON.stringify(args));
+                return this.handleCurlFetch(curlStr);
+            }
+            case "WebSearch": {
+                const query = (typeof args === 'string') ? args : (args?.search_query ?? JSON.stringify(args));
+                return this.handleWebSearch(query);
+            }
             default:
                 throw new Error(`Unknown tool: ${functionName}`);
         }

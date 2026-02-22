@@ -218,6 +218,127 @@ body {
     box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
 }
 
+/* Markdown rendering inside final response */
+.ai-final-response .markdown-body {
+    color: #86efac;
+    line-height: 1.65;
+    font-size: 13.5px;
+    word-break: break-word;
+}
+
+.ai-final-response .markdown-body p {
+    margin: 0 0 10px;
+}
+.ai-final-response .markdown-body p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-final-response .markdown-body h1,
+.ai-final-response .markdown-body h2,
+.ai-final-response .markdown-body h3,
+.ai-final-response .markdown-body h4,
+.ai-final-response .markdown-body h5,
+.ai-final-response .markdown-body h6 {
+    color: #bbf7d0;
+    font-weight: 600;
+    margin: 14px 0 6px;
+    line-height: 1.3;
+}
+.ai-final-response .markdown-body h1 { font-size: 1.35em; }
+.ai-final-response .markdown-body h2 { font-size: 1.2em; }
+.ai-final-response .markdown-body h3 { font-size: 1.07em; }
+.ai-final-response .markdown-body h4,
+.ai-final-response .markdown-body h5,
+.ai-final-response .markdown-body h6 { font-size: 1em; }
+
+.ai-final-response .markdown-body ul,
+.ai-final-response .markdown-body ol {
+    margin: 0 0 10px 18px;
+    padding: 0;
+}
+.ai-final-response .markdown-body li {
+    margin-bottom: 4px;
+}
+
+.ai-final-response .markdown-body code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #a7f3d0;
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.ai-final-response .markdown-body pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    margin: 8px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #15803d transparent;
+}
+.ai-final-response .markdown-body pre code {
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    color: #a7f3d0;
+}
+
+.ai-final-response .markdown-body blockquote {
+    border-left: 3px solid rgba(34, 197, 94, 0.5);
+    margin: 8px 0;
+    padding: 4px 12px;
+    color: #6ee7b7;
+    background: rgba(34, 197, 94, 0.05);
+    border-radius: 0 4px 4px 0;
+}
+
+.ai-final-response .markdown-body a {
+    color: #4ade80;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.ai-final-response .markdown-body a:hover {
+    color: #86efac;
+}
+
+.ai-final-response .markdown-body hr {
+    border: none;
+    border-top: 1px solid rgba(34, 197, 94, 0.3);
+    margin: 12px 0;
+}
+
+.ai-final-response .markdown-body table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 8px 0;
+    font-size: 12.5px;
+}
+.ai-final-response .markdown-body th,
+.ai-final-response .markdown-body td {
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    padding: 5px 10px;
+    text-align: left;
+}
+.ai-final-response .markdown-body th {
+    background: rgba(34, 197, 94, 0.1);
+    color: #bbf7d0;
+    font-weight: 600;
+}
+.ai-final-response .markdown-body tr:nth-child(even) td {
+    background: rgba(34, 197, 94, 0.04);
+}
+
+.ai-final-response .markdown-body strong {
+    color: #bbf7d0;
+    font-weight: 600;
+}
+.ai-final-response .markdown-body em {
+    color: #6ee7b7;
+}
+
 /* Command and Decision Badges */
 .message-content {
     display: flex;
@@ -855,25 +976,61 @@ body {
 }
 
 /* --- Command output area --- */
+.cmd-output-toggle {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    padding: 2px 0;
+    cursor: pointer;
+    user-select: none;
+    color: #64748b;
+    font-size: 11px;
+    transition: color 0.15s;
+}
+
+.cmd-output-toggle:hover {
+    color: #94a3b8;
+}
+
+.cmd-output-toggle.visible {
+    display: flex;
+}
+
+.cmd-output-chevron {
+    font-style: normal;
+    font-size: 9px;
+    transition: transform 0.2s ease;
+    display: inline-block;
+    line-height: 1;
+}
+
+.cmd-output-toggle.expanded .cmd-output-chevron {
+    transform: rotate(90deg);
+}
+
 .cmd-entry-output {
     font-family: 'Consolas', 'Courier New', monospace;
     font-size: 11px;
     color: #94a3b8;
     background: rgba(0, 0, 0, 0.25);
     border-radius: 4px;
-    padding: 6px 8px;
+    padding: 0 8px;
     margin: 0;
-    max-height: 400px;
-    overflow-y: auto;
+    max-height: 0;
+    overflow: hidden;
     white-space: pre-wrap;
     word-break: break-all;
     line-height: 1.4;
     scrollbar-width: thin;
     scrollbar-color: #1e40af transparent;
+    transition: max-height 0.25s ease, padding 0.25s ease;
 }
 
-.cmd-entry-output:empty {
-    display: none;
+.cmd-entry-output.expanded {
+    max-height: 400px;
+    padding: 6px 8px;
+    overflow-y: auto;
 }
 
 .cmd-entry-output::-webkit-scrollbar {
