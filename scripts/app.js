@@ -3,12 +3,9 @@
 let config = {};
 let aiTools = null; // AiTools instance — initialised after DOM ready
 
-// Build the effective system prompt = user-defined prompt + tools description
-function buildSystemPromptWithTools() {
-    const base       = config?.ai?.systemPrompt || '';
-    const toolsBlock = aiTools ? aiTools.getToolsSystemPrompt() : '';
-    if (!toolsBlock) return base;
-    return base ? `${base}\n\n---\n${toolsBlock}` : toolsBlock;
+// Build the effective system prompt from config
+function buildSystemPrompt() {
+    return config?.ai?.systemPrompt || '';
 }
 
 function playSound(soundPath) {
@@ -58,25 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // ================================
 function checkConfig() {
     const ai = config?.ai || {};
-    const geminiKey = ai.gemini?.apiKey || '';
     const openrouterKey = ai.openrouter?.apiKey || '';
-    
-    const isGeminiDefault = !geminiKey || geminiKey === 'YOUR_GEMINI_API_KEY';
     const isOpenrouterDefault = !openrouterKey || openrouterKey === 'YOUR_OPENROUTER_API_KEY';
     
     // If both API keys are empty or have default values, open the configuration modal
-    if (isGeminiDefault && isOpenrouterDefault) {
+    if (isOpenrouterDefault) {
         // Both unconfigured — force user to configure
         setTimeout(() => SettingsModal.openModal(), 100);
-    } else if (isGeminiDefault) {
+    } else {
         // Auto-fallback: use OpenRouter since Gemini is not configured
         config.ai.provider = 'openrouter';
         updateModelIndicator();
-    } else if (isOpenrouterDefault) {
-        // Auto-fallback: use Gemini since OpenRouter is not configured
-        config.ai.provider = 'gemini';
-        updateModelIndicator();
-    }
+    } 
 }
 
 // ================================
@@ -85,14 +75,11 @@ function checkConfig() {
 function updateModelIndicator() {
     const ai = config?.ai || {};
     const provider = ai.provider || '—';
-    const model = provider === 'gemini'
-        ? (ai.gemini?.model || '—')
-        : (ai.openrouter?.model || '—');
 
     const providerEl = document.getElementById('model-provider-label');
     const modelEl    = document.getElementById('model-name-label');
     if (providerEl) providerEl.textContent = provider;
-    if (modelEl)    modelEl.textContent    = model;
+    if (modelEl)    modelEl.textContent    = config?.ai?.openrouter?.model || '—';
 }
 
 // ================================
@@ -141,17 +128,11 @@ const SettingsModal = (() => {
         const providerSel = document.getElementById('cfg-provider');
         providerSel.value = ai.provider || 'openrouter';
 
-        document.getElementById('cfg-gemini-apikey').value      = ai.gemini?.apiKey      || '';
-        document.getElementById('cfg-gemini-model').value       = ai.gemini?.model       || '';
         document.getElementById('cfg-openrouter-apikey').value  = ai.openrouter?.apiKey  || '';
         document.getElementById('cfg-openrouter-model').value   = ai.openrouter?.model   || '';
+        document.getElementById('cfg-openrouter-enable-tools').checked = ai.openrouter?.enableTools !== false;
         document.getElementById('cfg-bravesearch-apikey').value = ai.toolsAuth?.braveSearch?.apiKey || '';
         document.getElementById('cfg-systemprompt').value       = ai.systemPrompt        || '';
-        // Fall back to generated default when not yet saved
-        document.getElementById('cfg-toolsprompt').value        =
-            ai.toolsPrompt !== undefined
-                ? ai.toolsPrompt
-                : (aiTools ? aiTools.getToolsSystemPrompt() : '');
 
         overlay.hidden = false;
     }
@@ -159,7 +140,7 @@ const SettingsModal = (() => {
     function closeModal() {
         overlay.hidden = true;
         // Reset API key visibility
-        ['cfg-gemini-apikey', 'cfg-openrouter-apikey', 'cfg-bravesearch-apikey'].forEach(id => {
+        ['cfg-openrouter-apikey', 'cfg-bravesearch-apikey'].forEach(id => {
             const input = document.getElementById(id);
             if (!input || input.type === 'password') return;
             input.type = 'password';
@@ -178,13 +159,10 @@ const SettingsModal = (() => {
         const newConfig = {
             ai: {
                 provider: document.getElementById('cfg-provider').value,
-                gemini: {
-                    apiKey: document.getElementById('cfg-gemini-apikey').value,
-                    model:  document.getElementById('cfg-gemini-model').value
-                },
                 openrouter: {
-                    apiKey: document.getElementById('cfg-openrouter-apikey').value,
-                    model:  document.getElementById('cfg-openrouter-model').value
+                    apiKey:       document.getElementById('cfg-openrouter-apikey').value,
+                    model:        document.getElementById('cfg-openrouter-model').value,
+                    enableTools:  document.getElementById('cfg-openrouter-enable-tools').checked
                 },
                 toolsAuth: {
                     braveSearch: {
@@ -192,7 +170,6 @@ const SettingsModal = (() => {
                     }
                 },
                 systemPrompt: document.getElementById('cfg-systemprompt').value,
-                toolsPrompt:  document.getElementById('cfg-toolsprompt').value
             }
         };
 
@@ -596,143 +573,38 @@ const AssistantApp = (() => {
     //  Send Message
     // ================================
 
-// Process message text to replace tags with visual indicators
+    function renderMarkdownInBubble(bubble, text) {
+        if (!text || typeof marked === 'undefined') return;
+        const content = bubble.querySelector('.message-content') || bubble;
+        const md = document.createElement('div');
+        md.className = 'markdown-body';
+        marked.use({ gfm: true, breaks: true });
+        md.innerHTML = marked.parse(text);
+        content.innerHTML = '';
+        content.appendChild(md);
+    }
+
+    // Render assistant message text as a DOM element (plain text, pre-wrap)
     function processMessageText(text) {
         const container = document.createElement('div');
         container.className = 'message-content';
 
-        let lastIndex = 0;
-        const cmdRegex = /<CMD>([\s\S]*?)<\/CMD>/gi;
-        const decisionRegex = /<(CONTINUE|WAIT|STOP)>/gi;
-        const toolRegex = /<TOOL\s+name="([^"]+)">([\s\S]*?)<\/TOOL>/gi;
-
-        // Process all tags
-        let allMatches = [];
-        let match;
-
-        // Find all CMD tags
-        while ((match = cmdRegex.exec(text)) !== null) {
-            allMatches.push({ type: 'cmd', index: match.index, length: match[0].length, content: match[1] });
-        }
-
-        // Find all decision tags
-        while ((match = decisionRegex.exec(text)) !== null) {
-            allMatches.push({ type: 'decision', index: match.index, length: match[0].length, decision: match[1] });
-        }
-
-        // Find all TOOL tags
-        while ((match = toolRegex.exec(text)) !== null) {
-            allMatches.push({ type: 'tool', index: match.index, length: match[0].length, toolName: match[1], toolContent: match[2].trim() });
-        }
-
-        // Sort matches by index
-        allMatches.sort((a, b) => a.index - b.index);
-        
-        lastIndex = 0;
-        for (const m of allMatches) {
-            // Add text before this match
-            if (m.index > lastIndex) {
-                const textBefore = text.substring(lastIndex, m.index).trim();
-                if (textBefore) {
-                    const span = document.createElement('span');
-                    span.style.display = 'block';
-                    span.style.marginBottom = '8px';
-                    span.style.whiteSpace = 'pre-wrap';
-                    span.style.wordWrap = 'break-word';
-                    span.textContent = textBefore;
-                    container.appendChild(span);
-                }
-            }
-            
-            if (m.type === 'cmd') {
-                // Command badge
-                const badge = document.createElement('div');
-                badge.className = 'cmd-badge';
-                const cmdContent = m.content.trim();
-                const span1 = document.createElement('span');
-                span1.className = 'cmd-icon';
-                span1.textContent = '⚙️';
-                const code = document.createElement('code');
-                code.textContent = cmdContent;
-                badge.appendChild(span1);
-                badge.appendChild(code);
-                container.appendChild(badge);
-            } else if (m.type === 'decision') {
-                // Decision badge
-                const decisionEl = document.createElement('div');
-                const decision = m.decision.toUpperCase();
-                decisionEl.className = `decision-badge decision-${decision.toLowerCase()}`;
-                
-                const icons = { 'CONTINUE': '✅', 'WAIT': '⏸️', 'STOP': '⛔' };
-                const labels = { 'CONTINUE': 'Done', 'WAIT': 'Wait', 'STOP': 'Stop' };
-                
-                const iconSpan = document.createElement('span');
-                iconSpan.className = 'decision-icon';
-                iconSpan.textContent = icons[decision];
-                
-                const labelSpan = document.createElement('span');
-                labelSpan.className = 'decision-label';
-                labelSpan.textContent = labels[decision];
-                
-                decisionEl.appendChild(iconSpan);
-                decisionEl.appendChild(labelSpan);
-                container.appendChild(decisionEl);
-
-            } else if (m.type === 'tool') {
-                // Tool-call badge
-                const toolEl = document.createElement('div');
-                toolEl.className = 'tool-call-badge';
-                toolEl.dataset.toolName = m.toolName;
-                toolEl.dataset.toolContent = m.toolContent;
-
-                const headerRow = document.createElement('div');
-                headerRow.className = 'tool-call-header';
-
-                const iconSpan = document.createElement('span');
-                iconSpan.className = 'tool-call-icon';
-                iconSpan.textContent = '🔧';
-
-                const nameSpan = document.createElement('span');
-                nameSpan.className = 'tool-call-name';
-                nameSpan.textContent = m.toolName;
-
-                const statusSpan = document.createElement('span');
-                statusSpan.className = 'tool-call-status tool-status-pending';
-                statusSpan.textContent = 'pending';
-
-                headerRow.appendChild(iconSpan);
-                headerRow.appendChild(nameSpan);
-                headerRow.appendChild(statusSpan);
-                toolEl.appendChild(headerRow);
-
-                // Args preview
-                const argsEl = document.createElement('code');
-                argsEl.className = 'tool-call-args';
-                argsEl.textContent = m.toolContent.length > 120
-                    ? m.toolContent.slice(0, 120) + '…'
-                    : m.toolContent;
-                toolEl.appendChild(argsEl);
-
-                container.appendChild(toolEl);
-            }
-            
-            lastIndex = m.index + m.length;
-        }
-        
-        // Add remaining text
-        if (lastIndex < text.length) {
-            const textAfter = text.substring(lastIndex).trim();
-            if (textAfter) {
-                const span = document.createElement('span');
-                span.style.display = 'block';
-                span.style.whiteSpace = 'pre-wrap';
-                span.style.wordWrap = 'break-word';
-                span.textContent = textAfter;
-                container.appendChild(span);
-            }
+        if (text) {
+            const span = document.createElement('span');
+            span.style.display = 'block';
+            span.style.whiteSpace = 'pre-wrap';
+            span.style.wordWrap = 'break-word';
+            span.textContent = text;
+            container.appendChild(span);
         }
 
         return container;
+    }
+
+    function createTextElement(bubble) {
+        const p = document.createElement('p');
+        bubble.appendChild(p);
+        return p;
     }
 
     function escapeHtml(text) {
@@ -761,19 +633,22 @@ const AssistantApp = (() => {
         // Build user bubble
         addMessageBubble('user', text, images);
 
-        // Build parts for conversation history (Gemini format internally)
-        const parts = [];
+        // Build content parts in OpenAI format
+        const contentParts = [];
         images.forEach(entry => {
             const base64 = entry.dataUrl.split(',')[1];
             const mimeType = entry.dataUrl.match(/data:(.*?);/)[1];
-            parts.push({ inline_data: { mime_type: mimeType, data: base64 } });
+            contentParts.push({ type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } });
         });
-        if (text) parts.push({ text });
+        if (text) contentParts.push({ type: 'text', text });
 
-        // Push to conversation history (stored in Gemini format, converted on-the-fly for OpenRouter)
-        conversationHistory.push({ role: 'user', parts });
+        // Push to history in OpenAI format (single text → string; multimodal → array)
+        conversationHistory.push({
+            role: 'user',
+            content: contentParts.length === 1 && contentParts[0].type === 'text' ? text : contentParts
+        });
 
-        // Trim history to avoid memory/token limits (keep system context + last N turns)
+        // Trim history to avoid memory/token limits
         const MAX_TURNS = 50;
         if (conversationHistory.length > MAX_TURNS) {
             conversationHistory = conversationHistory.slice(-MAX_TURNS);
@@ -786,235 +661,69 @@ const AssistantApp = (() => {
         dom.previewStrip.innerHTML = '';
         dom.messageInput.focus();
 
-        // Call AI with iterative feedback loop
+        // Agentic loop driven by native tool_calls protocol
         loopAborted = false;
         dom.stopBtn.style.display = 'flex';
         dom.sendBtn.disabled = true;
 
-        let statusAI = 'working';
-        let lastAIBubble = null;
-        while (statusAI === 'working' && !loopAborted) {
-            const aiResponse = await sendToAI();
-            lastAIBubble = dom.chatArea.querySelector('.message-bubble.assistant:last-of-type');
-            if (aiResponse) {
-                console.log('AI response received');
+        try {
+            while (!loopAborted) {
+                const aiResult = await sendToAI();
+                if (!aiResult) break;
 
-                // --- Extract <CMD> tags ---
-                const cmdRegex = /<CMD>([\s\S]*?)<\/CMD>/gi;
-                const commands = [];
-                let match;
-                while ((match = cmdRegex.exec(aiResponse)) !== null) {
-                    commands.push(match[1].trim());
-                }
+                const { text: responseText, toolCalls, finishReason, bubble: responseBubble } = aiResult;
 
-                // --- Extract <TOOL> tags ---
-                // Collect badges by DOM order — content-matching is unreliable for multi-line args
-                const toolBadgeEls = lastAIBubble
-                    ? [...lastAIBubble.querySelectorAll('.tool-call-badge')]
-                    : [];
-                const toolRegex = /<TOOL\s+name="([^"]+)">([\s\S]*?)<\/TOOL>/gi;
-                const toolMatches = [];
-                while ((match = toolRegex.exec(aiResponse)) !== null) {
-                    const toolName    = match[1];
-                    const toolContent = match[2].trim();
-                    const badge       = toolBadgeEls[toolMatches.length] || null;
-                    toolMatches.push({ toolName, toolContent, badge });
-                }
-
-                const hasCmds  = commands.length > 0;
-                const hasTools = toolMatches.length > 0;
-
-                if (hasCmds || hasTools) {
-                    if (lastAIBubble) lastAIBubble.classList.remove('ai-final-response');
-                    let resultsText = '';
-
-                    if (hasCmds) {
-                        console.log('Commands found:', commands);
-                        const cmdResults = await executeCommands(commands);
-                        resultsText += `COMMAND RESULTS:\n${cmdResults}\n`;
-                    }
-
-                    if (hasTools) {
-                        console.log('Tool calls found:', toolMatches.map(t => t.toolName));
-                        const toolResults = await executeToolCalls(toolMatches);
-                        resultsText += `TOOL RESULTS:\n${toolResults}\n`;
-                    }
-
-                    const feedbackMessage = resultsText.trim() +
-                        '\n\n[System] All tools/commands finished. Use the results above to answer the user\'s original request. Do NOT emit more <TOOL> or <CMD> tags unless you genuinely need additional data.';
-
+                if (finishReason === 'tool_calls' && toolCalls && toolCalls.length > 0) {
+                    // Push assistant turn with tool_calls into history
                     conversationHistory.push({
-                        role: 'user',
-                        parts: [{ text: feedbackMessage }]
+                        role: 'assistant',
+                        content: responseText || null,
+                        tool_calls: toolCalls.map(tc => ({
+                            id: tc.id,
+                            type: 'function',
+                            function: {
+                                name: tc.function.name,
+                                arguments: JSON.stringify(tc.function.arguments)
+                            }
+                        }))
                     });
 
-                    console.log('Sending results back to AI for evaluation…');
+                    // Execute all tools; collect results
+                    console.log('Tool calls:', toolCalls.map(tc => tc.function.name));
+                    const toolResults = await executeNativeToolCalls(toolCalls, responseBubble);
+
+                    // Push one tool-role message per result
+                    for (const tr of toolResults) {
+                        conversationHistory.push({ role: 'tool', tool_call_id: tr.id, content: tr.output });
+                    }
+                    // Loop continues — model will consume results and respond
                 } else {
-                    // No more actions — AI response is final
-                    console.log('No more actions found, stopping loop');
-                    if (lastAIBubble) lastAIBubble.classList.add('ai-final-response');
-                    statusAI = 'done';
+                    // Final text response — stop loop
+                    if (responseText) {
+                        conversationHistory.push({ role: 'assistant', content: responseText });
+                    }
+                    if (responseBubble) {
+                        responseBubble.classList.add('ai-final-response');
+                        renderMarkdownInBubble(responseBubble, responseText);
+                    }
+                    break;
                 }
-            } else {
-                statusAI = 'done';
-                if (lastAIBubble) lastAIBubble.classList.add('ai-final-response');
             }
+        } finally {
+            dom.stopBtn.style.display = 'none';
+            dom.sendBtn.disabled = false;
         }
-        statusAI = 'done';
-        dom.stopBtn.style.display = 'none';
-        dom.sendBtn.disabled = false;
     }
 
     // ================================
-    //  AI API (Multi-provider: Gemini / OpenRouter)
+    //  AI API (OpenRouter)
     // ================================
-
-    // Convert internal Gemini-format history to OpenRouter (OpenAI) format
-    function convertHistoryToOpenAI(history) {
-        return history.map(entry => {
-            const role = entry.role === 'model' ? 'assistant' : entry.role;
-            const content = [];
-
-            for (const part of entry.parts) {
-                if (part.text) {
-                    content.push({ type: 'text', text: part.text });
-                } else if (part.inline_data) {
-                    content.push({
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`
-                        }
-                    });
-                }
-            }
-
-            // If only one text part, simplify to string
-            if (content.length === 1 && content[0].type === 'text') {
-                return { role, content: content[0].text };
-            }
-            return { role, content };
-        });
-    }
 
     async function sendToAI() {
-        const provider = config.ai.provider || 'gemini';
-
+        const provider = config.ai.provider || 'openrouter';
         if (provider === 'openrouter') {
             return sendToOpenRouter();
-        } else {
-            return sendToGemini();
-        }
-    }
-
-    // --- Gemini Provider ---
-    async function sendToGemini(retryCount = 0) {
-        const MAX_RETRIES = 3;
-        const cfg = config.ai.gemini;
-        const apiKey = cfg.apiKey;
-        const model = cfg.model || 'gemini-2.0-flash-lite';
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
-
-        // Show typing indicator
-        const typingBubble = addMessageBubble('assistant', '');
-        const textEl = typingBubble.querySelector('p') || createTextElement(typingBubble);
-        textEl.innerHTML = '<span class="typing-indicator"><span></span><span></span><span></span></span>';
-
-        const body = {
-            contents: conversationHistory,
-        };
-
-        const effectiveSystemPrompt = buildSystemPromptWithTools();
-        if (effectiveSystemPrompt) {
-            body.system_instruction = {
-                parts: [{ text: effectiveSystemPrompt }]
-            };
-        }
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            if (response.status === 429 && retryCount < MAX_RETRIES) {
-                const errBody = await response.text();
-                const delayMatch = errBody.match(/retry in ([\d.]+)s/i);
-                const waitSec = delayMatch ? Math.ceil(parseFloat(delayMatch[1])) : 20;
-
-                for (let s = waitSec; s > 0; s--) {
-                    textEl.textContent = `Rate limit atingido. Tentando novamente em ${s}s...`;
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-                textEl.innerHTML = '<span class="typing-indicator"><span></span><span></span><span></span></span>';
-                typingBubble.remove();
-                return sendToGemini(retryCount + 1);
-            }
-
-            if (!response.ok) {
-                const err = await response.text();
-                throw new Error(`API ${response.status}: ${err}`);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullText = '';
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const jsonStr = line.slice(6).trim();
-                    if (!jsonStr || jsonStr === '[DONE]') continue;
-
-                    try {
-                        const parsed = JSON.parse(jsonStr);
-                        const parts = parsed.candidates?.[0]?.content?.parts;
-                        if (parts) {
-                            for (const part of parts) {
-                                if (part.text) {
-                                    fullText += part.text;
-                                    textEl.textContent = fullText;
-                                    dom.chatArea.scrollTop = dom.chatArea.scrollHeight;
-                                }
-                            }
-                        }
-                    } catch (e) { /* skip malformed */ }
-                }
-            }
-
-            if (fullText) {
-                conversationHistory.push({ role: 'model', parts: [{ text: fullText }] });
-                // Replace typing bubble with processed content
-                typingBubble.innerHTML = '';
-                const processedContent = processMessageText(fullText);
-                typingBubble.appendChild(processedContent);
-            }
-            if (!fullText) {
-                typingBubble.innerHTML = '';
-                const p = document.createElement('p');
-                p.textContent = '(Sem resposta do modelo)';
-                typingBubble.appendChild(p);
-            }
-            return fullText || '';
-
-        } catch (error) {
-            console.error('Gemini API error:', error);
-            typingBubble.innerHTML = '';
-            const p = document.createElement('p');
-            p.textContent = `Erro: ${error.message}`;
-            p.style.color = '#ef4444';
-            typingBubble.appendChild(p);
-            typingBubble.classList.add('error');
-            return '';
-        }
+        } 
     }
 
     // --- OpenRouter Provider ---
@@ -1030,20 +739,23 @@ const AssistantApp = (() => {
         const textEl = typingBubble.querySelector('p') || createTextElement(typingBubble);
         textEl.innerHTML = '<span class="typing-indicator"><span></span><span></span><span></span></span>';
 
-        // Build messages in OpenAI format
+        // History is already in OpenAI format — use directly
         const messages = [];
-        const effectiveSystemPrompt = buildSystemPromptWithTools();
+        const effectiveSystemPrompt = buildSystemPrompt();
         if (effectiveSystemPrompt) {
             messages.push({ role: 'system', content: effectiveSystemPrompt });
         }
+        messages.push(...conversationHistory);
 
-        console.log('Sending conversation history to OpenRouter:', messages);
-        messages.push(...convertHistoryToOpenAI(conversationHistory));
-
+        const enableTools = cfg.enableTools !== false && aiTools;
         const body = {
             model: model,
             messages: messages,
             stream: true,
+            ...(enableTools && {
+                tools: aiTools.ListTools(),
+                tool_choice: 'auto'
+            })
         };
 
         try {
@@ -1077,11 +789,15 @@ const AssistantApp = (() => {
                 throw new Error(`API ${response.status}: ${err}`);
             }
 
-            // OpenRouter via ProxyFetch returns full body (no streaming through proxy)
+            // ProxyFetch returns full body at once (SSE lines all arrive together)
             const responseText = await response.text();
             let fullText = '';
+            let finishReason = 'stop';
 
-            // Try to parse as SSE stream (lines of "data: {...}")
+            // Accumulate tool_calls fragments per index across all delta chunks
+            const toolCallsMap = {};
+
+            // Parse SSE stream
             const lines = responseText.split('\n');
             for (const line of lines) {
                 if (!line.startsWith('data: ')) continue;
@@ -1090,20 +806,52 @@ const AssistantApp = (() => {
 
                 try {
                     const parsed = JSON.parse(jsonStr);
-                    const delta = parsed.choices?.[0]?.delta?.content;
-                    if (delta) {
-                        fullText += delta;
+                    const choice = parsed.choices?.[0];
+                    if (!choice) continue;
+
+                    if (choice.finish_reason) finishReason = choice.finish_reason;
+
+                    const delta = choice.delta;
+                    if (!delta) continue;
+
+                    // Text content
+                    if (delta.content) {
+                        fullText += delta.content;
                         textEl.textContent = fullText;
                         dom.chatArea.scrollTop = dom.chatArea.scrollHeight;
                     }
-                } catch (e) { /* skip */ }
+
+                    // Tool calls (fragmented across chunks — accumulate by index)
+                    if (delta.tool_calls) {
+                        for (const tc of delta.tool_calls) {
+                            const idx = tc.index ?? 0;
+                            if (!toolCallsMap[idx]) {
+                                toolCallsMap[idx] = { id: '', type: 'function', function: { name: '', arguments: '' } };
+                            }
+                            if (tc.id) toolCallsMap[idx].id = tc.id;
+                            if (tc.type) toolCallsMap[idx].type = tc.type;
+                            if (tc.function?.name) toolCallsMap[idx].function.name += tc.function.name;
+                            if (tc.function?.arguments) toolCallsMap[idx].function.arguments += tc.function.arguments;
+                        }
+                    }
+                } catch (e) { /* skip malformed lines */ }
             }
 
-            // If SSE parsing got nothing, try as regular JSON response
-            if (!fullText) {
+            // Fallback: try as non-streaming JSON if SSE parsing yielded nothing
+            if (!fullText && Object.keys(toolCallsMap).length === 0) {
                 try {
                     const parsed = JSON.parse(responseText);
                     fullText = parsed.choices?.[0]?.message?.content || '';
+                    finishReason = parsed.choices?.[0]?.finish_reason || 'stop';
+
+                    // Non-streaming tool_calls
+                    const msgToolCalls = parsed.choices?.[0]?.message?.tool_calls;
+                    if (msgToolCalls) {
+                        msgToolCalls.forEach((tc, idx) => {
+                            toolCallsMap[idx] = { id: tc.id, type: tc.type, function: { name: tc.function.name, arguments: tc.function.arguments } };
+                        });
+                    }
+
                     if (fullText) {
                         textEl.textContent = fullText;
                         dom.chatArea.scrollTop = dom.chatArea.scrollHeight;
@@ -1111,37 +859,98 @@ const AssistantApp = (() => {
                 } catch (e) { /* skip */ }
             }
 
-            if (fullText) {
-                conversationHistory.push({ role: 'model', parts: [{ text: fullText }] });
-                // Replace typing bubble with processed content
+            // Build structured tool_calls array with parsed arguments
+            const toolCalls = Object.values(toolCallsMap).map(tc => ({
+                id: tc.id,
+                type: tc.type,
+                function: {
+                    name: tc.function.name,
+                    arguments: (() => {
+                        try { return JSON.parse(tc.function.arguments); }
+                        catch { return { _raw: tc.function.arguments }; }
+                    })()
+                }
+            }));
+
+            // Render bubble: tool call badges OR final text
+            if (toolCalls.length > 0) {
                 typingBubble.innerHTML = '';
-                const processedContent = processMessageText(fullText);
-                typingBubble.appendChild(processedContent);
-            }
-            if (!fullText) {
+                typingBubble.appendChild(createToolCallBadges(toolCalls));
+            } else if (fullText) {
+                typingBubble.innerHTML = '';
+                typingBubble.appendChild(processMessageText(fullText));
+            } else {
                 typingBubble.innerHTML = '';
                 const p = document.createElement('p');
                 p.textContent = '(Sem resposta do modelo)';
                 typingBubble.appendChild(p);
             }
-            return fullText || '';
+
+            return { text: fullText, toolCalls, finishReason, bubble: typingBubble };
 
         } catch (error) {
             console.error('OpenRouter API error:', error);
             typingBubble.innerHTML = '';
             const p = document.createElement('p');
-            p.textContent = `Erro: ${error.message}`;
+            const isTimeout = error.message?.toLowerCase().includes('timeout') ||
+                              error.message?.toLowerCase().includes('cancelled');
+            p.textContent = isTimeout
+                ? `Erro: Timeout na API (${model}). Este modelo pode não suportar tool calling — tente desativar "enableTools" nas configurações ou mude para um modelo compatível (ex: openai/gpt-4o-mini).`
+                : `Erro: ${error.message}`;
             p.style.color = '#ef4444';
             typingBubble.appendChild(p);
             typingBubble.classList.add('error');
-            return '';
+            return null;
         }
     }
 
-    function createTextElement(bubble) {
-        const p = document.createElement('p');
-        bubble.appendChild(p);
-        return p;
+    // ================================
+    //  Tool Call Badges (chat bubble)
+    // ================================
+    function createToolCallBadges(toolCalls) {
+        const container = document.createElement('div');
+        container.className = 'message-content';
+
+        for (const tc of toolCalls) {
+            const badge = document.createElement('div');
+            badge.className = 'tool-call-badge';
+            badge.dataset.toolCallId = tc.id;
+
+            const headerRow = document.createElement('div');
+            headerRow.className = 'tool-call-header';
+
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'tool-call-icon';
+            iconSpan.textContent = tc.function.name === 'PwshExec' ? '⚙️' : '🔧';
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'tool-call-name';
+            nameSpan.textContent = tc.function.name;
+
+            const statusSpan = document.createElement('span');
+            statusSpan.className = 'tool-call-status tool-status-pending';
+            statusSpan.textContent = 'pending';
+
+            headerRow.appendChild(iconSpan);
+            headerRow.appendChild(nameSpan);
+            headerRow.appendChild(statusSpan);
+            badge.appendChild(headerRow);
+
+            const argsStr = JSON.stringify(tc.function.arguments);
+            const argsEl = document.createElement('code');
+            argsEl.className = 'tool-call-args';
+            argsEl.textContent = argsStr.length > 120 ? argsStr.slice(0, 120) + '…' : argsStr;
+            badge.appendChild(argsEl);
+
+            const resultEl = document.createElement('div');
+            resultEl.className = 'tool-call-result';
+            resultEl.style.display = 'none';
+            badge.appendChild(resultEl);
+
+            container.appendChild(badge);
+        }
+
+        return container;
     }
 
     function addMessageBubble(role, text, images = []) {
@@ -1264,7 +1073,7 @@ const AssistantApp = (() => {
         constructor(id, command) {
             this.id = id;
             this.command = command;
-            this.resolve = null;    // set by executeCommands to resolve the output promise
+            this.resolve = null;    // set by executePwshCommand to resolve the output promise
             this.doneMarker = null; // unique marker echoed after the command to detect completion
 
             this.element = document.createElement('div');
@@ -1335,12 +1144,39 @@ const AssistantApp = (() => {
             this.statusRow.appendChild(this.confirmBtn);
             this.statusRow.appendChild(this.stopBtn);
 
+            // Output toggle row (chevron + line count)
+            this.toggleRow = document.createElement('div');
+            this.toggleRow.className = 'cmd-output-toggle';
+            this.toggleRow.addEventListener('click', () => this.toggleOutput());
+
+            const chevron = document.createElement('em');
+            chevron.className = 'cmd-output-chevron';
+            chevron.textContent = '▶';
+
+            this.toggleLabel = document.createElement('span');
+            this.toggleLabel.textContent = 'Output';
+
+            this.toggleRow.appendChild(chevron);
+            this.toggleRow.appendChild(this.toggleLabel);
+
             this.outputArea = document.createElement('pre');
             this.outputArea.className = 'cmd-entry-output';
 
             this.element.appendChild(this.label);
             this.element.appendChild(this.statusRow);
+            this.element.appendChild(this.toggleRow);
             this.element.appendChild(this.outputArea);
+        }
+
+        toggleOutput(forceExpand) {
+            const shouldExpand = forceExpand !== undefined ? forceExpand : !this.toggleRow.classList.contains('expanded');
+            this.toggleRow.classList.toggle('expanded', shouldExpand);
+            this.outputArea.classList.toggle('expanded', shouldExpand);
+            if (shouldExpand) {
+                setTimeout(() => {
+                    this.outputArea.scrollTop = this.outputArea.scrollHeight;
+                }, 260);
+            }
         }
 
         stop() {
@@ -1356,10 +1192,17 @@ const AssistantApp = (() => {
         appendOutput(text) {
             if (!text) return;
             this.outputArea.textContent += text;
-            setTimeout(() => {
-                this.outputArea.scrollTop = this.outputArea.scrollHeight;
-                dom.cmdPanelBody.scrollTop = dom.cmdPanelBody.scrollHeight;
-            }, 0);
+            // Show toggle row once there's output
+            this.toggleRow.classList.add('visible');
+            // Update line count label
+            const lines = this.outputArea.textContent.split('\n').filter(l => l.trim()).length;
+            this.toggleLabel.textContent = `Output (${lines} line${lines !== 1 ? 's' : ''})`;
+            if (this.outputArea.classList.contains('expanded')) {
+                setTimeout(() => {
+                    this.outputArea.scrollTop = this.outputArea.scrollHeight;
+                    dom.cmdPanelBody.scrollTop = dom.cmdPanelBody.scrollHeight;
+                }, 0);
+            }
         }
 
         getOutput() {
@@ -1440,84 +1283,64 @@ const AssistantApp = (() => {
     const cmdManager = new CmdManager();
 
     // ================================
-    //  Execute CMD commands from AI
+    //  Execute a single PowerShell command (with confirm gate + real-time output)
     // ================================
 
-    async function executeCommands(commands) {
-        if (!webWrap) {
-            console.error('WebWrap not available');
-            return '';
+    async function executePwshCommand(command) {
+        if (!webWrap) throw new Error('WebWrap not available');
+
+        // Create a PowerShell session if we don't have one
+        if (!pwshRequestId) {
+            pwshRequestId = webWrap.createPwsh('ai-agent', true);
         }
 
-        const cmdOutputs = [];
+        const id = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const entry = cmdManager.addCommand(id, command);
+        cmdManager.setActiveEntry(id);
 
-        try {
-            // Create a PowerShell session if we don't have one
-            if (!pwshRequestId) {
-                pwshRequestId = webWrap.createPwsh('ai-agent', true);
-            }
+        // Wait for user to click "Executar" (confirmation gate)
+        await new Promise((resolve) => {
+            entry.confirmBtn.addEventListener('click', () => {
+                entry.showConfirmBtn(false);
+                entry.showSpinner(true);
+                entry.showStopBtn(true);
+                entry.setStatus('running', '#3b82f6');
+                entry.toggleOutput(true); // auto-expand to show live output
+                resolve();
+            }, { once: true });
+        });
 
-            for (let i = 0; i < commands.length; i++) {
-                const cmd = commands[i];
-                const id = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-                const entry = cmdManager.addCommand(id, cmd);
-                cmdManager.setActiveEntry(id);
+        // Append a unique done-marker to detect command completion from async output
+        const marker = `__DONE_${crypto.randomUUID().slice(0, 8)}__`;
 
-                // Wait for user to click "Executar"
-                await new Promise((resolve) => {
-                    entry.confirmBtn.addEventListener('click', () => {
-                        entry.showConfirmBtn(false);
-                        entry.showSpinner(true);
-                        entry.showStopBtn(true);
-                        entry.setStatus('running', '#3b82f6');
-                        resolve();
-                    }, { once: true });
-                });
+        const output = await new Promise((resolve) => {
+            entry.doneMarker = marker;
+            entry.resolve = resolve;
+            entry.appendOutput(`\n>> ${command}`);
+            webWrap.sendCommand(pwshRequestId, `${command}; echo '${marker}'`);
+        });
 
-                // Generate a unique marker to detect when the command finishes
-                const marker = `__DONE_${crypto.randomUUID().slice(0, 8)}__`;
-
-                const output = await new Promise((resolve) => {
-                    entry.doneMarker = marker;
-                    entry.resolve = resolve;
-
-                    // Send: command ; echo MARKER  (the marker in the output = done)
-                    entry.appendOutput(`\n>> ${cmd}`);
-                    webWrap.sendCommand(pwshRequestId, `${cmd}; echo '${marker}'`);
-                });
-
-                cmdManager.setActiveEntry(null);
-                cmdOutputs.push({ command: cmd, output: output || '(no output)' });
-
-                if (i < commands.length - 1) {
-                    await new Promise(r => setTimeout(r, 300));
-                }
-            }
-        } catch (err) {
-            console.error('Command execution error:', err.message);
-        }
-
-        return cmdOutputs.map(item => `Comando: ${item.command}\nResultado:\n${item.output}`).join('\n---\n');
-    }
-
-    function registerCommand(id, command) {
-        cmdManager.addCommand(id, command);
+        cmdManager.setActiveEntry(null);
+        return output || '(no output)';
     }
 
     // ================================
-    //  Execute Tool Calls from AI
+    //  Execute native tool_calls from OpenRouter response
     // ================================
 
-    async function executeToolCalls(toolMatches) {
+    async function executeNativeToolCalls(toolCalls, typingBubble) {
         if (!aiTools) {
             console.warn('aiTools not available — cannot execute tool calls');
-            return 'Error: tool engine not initialised.';
+            return toolCalls.map(tc => ({ id: tc.id, output: 'Error: tool engine not initialised.' }));
         }
 
-        const toolOutputs = [];
+        const results = [];
 
-        for (const { toolName, toolContent, badge } of toolMatches) {
-            // Update badge status in the chat bubble
+        for (const tc of toolCalls) {
+            const { name, arguments: args } = tc.function;
+
+            // Find badge in the chat bubble for live status updates
+            const badge = typingBubble?.querySelector(`.tool-call-badge[data-tool-call-id="${tc.id}"]`);
             const statusEl = badge?.querySelector('.tool-call-status');
             const resultEl = badge?.querySelector('.tool-call-result');
 
@@ -1527,61 +1350,57 @@ const AssistantApp = (() => {
                 statusEl.className = `tool-call-status ${cssClass}`;
             };
 
-            // Show a side-panel entry so the user can track execution
-            const panelId = `tool_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-            const panelLabel = `🔧 ${toolName}: ${toolContent.length > 50 ? toolContent.slice(0, 50) + '…' : toolContent}`;
-            const panelEntry = cmdManager.addCommand(panelId, panelLabel);
-            panelEntry.showConfirmBtn(false);
-            panelEntry.showSpinner(true);
-            panelEntry.setStatus('running', '#8b5cf6');
-
-            setStatus('running…', 'tool-status-running');
-
-            let resultText = '';
+            let output = '';
             try {
-                resultText = await aiTools.ToolCall(toolName, toolContent);
-                resultText = String(resultText ?? '');
+                setStatus('running…', 'tool-status-running');
 
-                panelEntry.appendOutput(resultText.slice(0, 4000));
-                panelEntry.setStatus('done', '#22c55e');
-                panelEntry.showSpinner(false);
+                if (name === 'PwshExec') {
+                    // PwshExec: requires confirm gate + real-time streaming output
+                    const command = (typeof args === 'string') ? args : (args?.command ?? JSON.stringify(args));
+                    output = await executePwshCommand(command);
+                } else {
+                    // All other tools: auto-run with side-panel indicator
+                    const argPreview = JSON.stringify(args);
+                    const panelId = `tool_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                    const panelLabel = `🔧 ${name}: ${argPreview.length > 50 ? argPreview.slice(0, 50) + '…' : argPreview}`;
+                    const panelEntry = cmdManager.addCommand(panelId, panelLabel);
+                    panelEntry.showConfirmBtn(false);
+                    panelEntry.showSpinner(true);
+                    panelEntry.setStatus('running', '#8b5cf6');
+
+                    output = await aiTools.ToolCall(name, args);
+                    output = String(output ?? '');
+
+                    panelEntry.appendOutput(output.slice(0, 4000));
+                    panelEntry.setStatus('done', '#22c55e');
+                    panelEntry.showSpinner(false);
+                }
 
                 setStatus('done ✓', 'tool-status-done');
                 if (resultEl) {
-                    const preview = resultText.length > 400 ? resultText.slice(0, 400) + '\n… (truncated)' : resultText;
+                    const preview = output.length > 400 ? output.slice(0, 400) + '\n… (truncated)' : output;
                     resultEl.textContent = preview;
                     resultEl.style.display = 'block';
                 }
             } catch (err) {
-                resultText = `Error: ${err.message}`;
-                panelEntry.appendOutput(resultText);
-                panelEntry.setStatus('error', '#ef4444');
-                panelEntry.showSpinner(false);
-
+                output = `Error: ${err.message}`;
+                console.error(`Tool ${name} error:`, err);
                 setStatus('error', 'tool-status-error');
                 if (resultEl) {
-                    resultEl.textContent = resultText;
+                    resultEl.textContent = output;
                     resultEl.style.display = 'block';
                 }
             }
 
-            toolOutputs.push({ toolName, args: toolContent, output: resultText || '(no output)' });
+            results.push({ id: tc.id, output: output || '(no output)' });
         }
 
-        return toolOutputs
-            .map(t => `Tool: ${t.toolName}\nArgs: ${t.args}\nResult:\n${t.output}`)
-            .join('\n---\n');
-    }
-
-    function unregisterCommand(id) {
-        cmdManager.removeCommand(id);
+        return results;
     }
 
     // --- Public API ---
     return {
         init,
-        registerCommand,
-        unregisterCommand,
         killSession() {
             if (pwshRequestId) {
                 try { webWrap.killPwsh(pwshRequestId); } catch (e) {}

@@ -33,23 +33,7 @@
                     <label>Provider</label>
                     <select id="cfg-provider">
                         <option value="openrouter">openrouter</option>
-                        <option value="gemini">gemini</option>
                     </select>
-                </div>
-                <div class="form-section-title">Gemini</div>
-                <div class="form-group">
-                    <label>API Key</label>
-                    <div class="input-reveal">
-                        <input type="password" id="cfg-gemini-apikey" placeholder="AIza..." autocomplete="off" />
-                        <button type="button" class="reveal-btn" data-target="cfg-gemini-apikey" title="Show/Hide">
-                            <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Model</label>
-                    <input type="text" id="cfg-gemini-model" placeholder="gemini-2.5-flash" />
                 </div>
                 <div class="form-section-title">OpenRouter</div>
                 <div class="form-group">
@@ -66,6 +50,12 @@
                     <label>Model</label>
                     <input type="text" id="cfg-openrouter-model" placeholder="arcee-ai/..." />
                 </div>
+                <div class="form-group" style="flex-direction:row;align-items:center;gap:8px;">
+                    <input type="checkbox" id="cfg-openrouter-enable-tools" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;" />
+                    <label for="cfg-openrouter-enable-tools" style="margin:0;cursor:pointer;">Enable native tool calling
+                        <span style="font-size:11px;font-weight:400;color:#6b7280;margin-left:4px;">disable if model times out or doesn’t support tools</span>
+                    </label>
+                </div>
                 <div class="form-section-title">Tools</div>
                 <div class="form-group">
                     <label>Brave Search API Key</label>
@@ -81,12 +71,6 @@
                 <div class="form-group">
                     <label>System Prompt</label>
                     <textarea id="cfg-systemprompt" rows="8" placeholder="System instructions for the agent..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Tools Prompt
-                        <span style="font-size:11px;font-weight:400;color:#6b7280;margin-left:6px;">injected after system prompt when tools are available</span>
-                    </label>
-                    <textarea id="cfg-toolsprompt" rows="7" placeholder="Leave empty to disable tool calling..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -178,6 +162,7 @@
     </div>
 
     <!-- Load dependencies -->
+    <script src="scripts/libs/marked.min.js"></script>
     <script src="scripts/webWrap.js"></script>
     <script src="scripts/aiTools.js"></script>
     <script src="scripts/app.js"></script>
