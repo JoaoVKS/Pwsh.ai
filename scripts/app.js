@@ -11,6 +11,17 @@ function buildSystemPromptWithTools() {
     return base ? `${base}\n\n---\n${toolsBlock}` : toolsBlock;
 }
 
+function playSound(soundPath) {
+  let soundEffect = new Audio(soundPath);
+  soundEffect.onended = function() {
+        this.src = "";
+        this.remove();
+        soundEffect = null;
+    };
+  soundEffect.play();
+
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     (async () => {
         if (typeof webWrap === 'undefined') {
@@ -470,8 +481,10 @@ const AssistantApp = (() => {
         if (!recognition) return;
 
         if (isRecording) {
+            playSound('./assets/sent_voice.mp3');
             recognition.stop();
         } else {
+            playSound('./assets/start_voice.mp3');
             dom.messageInput.dataset.preVoiceText = dom.messageInput.value;
             recognition.start();
         }
@@ -883,13 +896,13 @@ const AssistantApp = (() => {
         });
     }
 
-    async function sendToAI(retryCount = 0) {
+    async function sendToAI() {
         const provider = config.ai.provider || 'gemini';
 
         if (provider === 'openrouter') {
-            return sendToOpenRouter(retryCount);
+            return sendToOpenRouter();
         } else {
-            return sendToGemini(retryCount);
+            return sendToGemini();
         }
     }
 
@@ -1030,7 +1043,7 @@ const AssistantApp = (() => {
         const body = {
             model: model,
             messages: messages,
-            stream: true
+            stream: true,
         };
 
         try {
@@ -1048,7 +1061,7 @@ const AssistantApp = (() => {
             if (response.status === 429 && retryCount < MAX_RETRIES) {
                 const errBody = await response.text();
                 const delayMatch = errBody.match(/retry in ([\d.]+)s/i);
-                const waitSec = delayMatch ? Math.ceil(parseFloat(delayMatch[1])) : 20;
+                const waitSec = delayMatch ? Math.ceil(parseFloat(delayMatch[1])) : 5;
 
                 for (let s = waitSec; s > 0; s--) {
                     textEl.textContent = `Rate limit atingido. Tentando novamente em ${s}s...`;
