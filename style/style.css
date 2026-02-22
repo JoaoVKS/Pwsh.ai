@@ -70,6 +70,48 @@ body {
     gap: 0;
     padding: 0;
     overflow: hidden;
+    position: relative;
+    background: #00000085;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark animated backdrop for `app-layout` — deep purple + deep blue moving gradients */
+.app-layout::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    /* smooth multi-stop gradient (deep purple -> deep blue -> near-black) */
+    background: linear-gradient(140deg, rgb(114 60 200 / 44%) 0%, rgb(72 30 150 / 41%) 24%, rgb(34 45 140 / 42%) 44%, rgb(10 12 30 / 0%) 68%, rgba(0, 0, 0, 1) 96%);
+    /* smaller horizontal spread and pinned to top so lower areas can remain black */
+    background-size: 160% 100%;
+    background-position: top center;
+    filter: blur(6px) saturate(130%);
+    animation: gradientShift 22s ease-in-out infinite;
+}
+
+.app-layout::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    /* add a top-to-bottom darkening overlay so lower areas become solid/near-solid black
+       while keeping the top colored — the linear gradient is the topmost layer */
+    background:
+        linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 62%, rgba(0,0,0,1) 100%),
+        radial-gradient(60% 50% at 18% 12%, rgba(88,28,156,0.10), transparent 28%),
+        radial-gradient(80% 60% at 82% 78%, rgba(6,10,30,0.28), transparent 50%);
+    mix-blend-mode: overlay;
+    filter: blur(5px);
+}
+
+/* Ensure content sits above the animated background */
+.app-layout > * {
+    position: relative;
+    z-index: 2;
 }
 
 /* ===========================
@@ -338,7 +380,18 @@ body {
 .ai-final-response .markdown-body em {
     color: #6ee7b7;
 }
-
+.copy-args-btn{
+    margin-left: 6px;
+    background: rgba(255, 255, 255, 0);
+    border: 1px solid #c4b5fd40;
+    padding: 3px;
+    border-radius: 15px;
+    cursor: pointer;
+    color: white;
+    font-size: 14px;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
 /* Command and Decision Badges */
 .message-content {
     display: flex;
@@ -528,7 +581,7 @@ body {
    =========================== */
 .input-container {
     background: #1a1d3a;
-    border: 1px solid #1e40af;
+    border: 1px solid #2a2f4a;
     border-radius: 16px;
     padding: 8px;
     display: flex;
@@ -538,7 +591,7 @@ body {
 }
 
 .input-container:focus-within {
-    border-color: #3b82f6;
+    border-color: #162081;
 }
 
 /* --- Image Preview Strip --- */
@@ -856,7 +909,9 @@ body {
 }
 
 .cmd-panel {
-    flex: 1;
+    /* Start around 25% of the viewport width but keep sensible limits */
+    width: clamp(220px, 25vw, 360px);
+    flex: 0 0 auto;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -1100,9 +1155,10 @@ body {
 }
 
 .settings-btn {
-    background: rgba(255, 255, 255, 0.05);
+    padding-bottom: 4px;
+    background: rgb(103 14 241 / 28%);
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    color: #64748b;
+    color: #c5c5c5;
     transition: color 0.2s, background 0.2s, border-color 0.2s;
 }
 
@@ -1391,4 +1447,26 @@ body {
     flex-shrink: 0;
     min-width: 36px;
     text-align: right;
+}
+
+/* Animations for app-layout backdrop */
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-layout::before {
+        animation: none !important;
+        background-size: 100% 100% !important;
+    }
 }
