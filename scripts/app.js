@@ -2,6 +2,7 @@
 // Modules: Image Attachment, Voice Recognition, Chat UI
 let config = {};
 let aiTools = null; // AiTools instance — initialised after DOM ready
+let modelContextLength = null; // Model context window size fetched from OpenRouter API
 
 // Build the effective system prompt from config
 function buildSystemPrompt() {
@@ -72,7 +73,25 @@ function checkConfig() {
 // ================================
 //  Model Indicator
 // ================================
-function updateModelIndicator() {
+async function fetchModelContextLength(apiKey, model) {
+    try {
+        const response = await webWrap.ProxyFetch('https://openrouter.ai/api/v1/models', {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+        if (!response.ok) return null;
+        const json = await response.json();
+        const found = (json.data || []).find(m => m.id === model);
+        const ctxLen = found?.context_length ?? null;
+        if (ctxLen) console.log(`Context window for ${model}: ${ctxLen}`);
+        return ctxLen;
+    } catch (err) {
+        console.warn('fetchModelContextLength failed:', err);
+        return null;
+    }
+}
+
+async function updateModelIndicator() {
     const ai = config?.ai || {};
     const provider = ai.provider || '—';
 
@@ -80,6 +99,47 @@ function updateModelIndicator() {
     const modelEl    = document.getElementById('model-name-label');
     if (providerEl) providerEl.textContent = provider;
     if (modelEl)    modelEl.textContent    = config?.ai?.openrouter?.model || '—';
+
+    // Fetch context window size for the active model
+    const apiKey = ai.openrouter?.apiKey || '';
+    const model  = ai.openrouter?.model  || '';
+    const isDefault = !apiKey || apiKey === 'YOUR_OPENROUTER_API_KEY';
+    if (!isDefault && model) {
+        modelContextLength = await fetchModelContextLength(apiKey, model);
+    } else {
+        modelContextLength = null;
+    }
+    updateContextUsage(0, 0);
+}
+
+function updateContextUsage(promptTokens, completionTokens) {
+    const el = document.getElementById('context-usage');
+    if (!el) return;
+
+    const total = (promptTokens || 0) + (completionTokens || 0);
+
+    if (!modelContextLength) {
+        // Context window unknown — show raw count only if non-zero
+        if (total === 0) {
+            el.innerHTML = '';
+            return;
+        }
+        el.innerHTML = `<span class="context-label">${total.toLocaleString()} tokens</span>`;
+        return;
+    }
+
+    const pct = Math.min((total / modelContextLength) * 100, 100);
+    const color = pct >= 85 ? '#ef4444' : pct >= 60 ? '#f59e0b' : '#22c55e';
+
+    el.innerHTML = `
+        <div class="context-bar-wrap">
+            <span class="context-label">${total.toLocaleString()} / ${modelContextLength.toLocaleString()}</span>
+            <div class="context-bar-bg">
+                <div class="context-bar-fill" style="width:${pct.toFixed(1)}%;background:${color};"></div>
+            </div>
+            <span class="context-pct">${pct.toFixed(1)}%</span>
+        </div>
+    `;
 }
 
 // ================================
@@ -95,6 +155,7 @@ const SettingsModal = (() => {
         closeBtn  = document.getElementById('modal-close-btn');
 
         document.getElementById('settings-btn').addEventListener('click', openModal);
+        document.getElementById('reset-btn').addEventListener('click', () => webWrap.reloadBrowser());
         closeBtn .addEventListener('click', closeModal);
         cancelBtn.addEventListener('click', closeModal);
         saveBtn  .addEventListener('click', saveAndRestart);
@@ -806,6 +867,12 @@ const AssistantApp = (() => {
 
                 try {
                     const parsed = JSON.parse(jsonStr);
+
+                    // Usage data — may appear on the final chunk (sometimes without choices)
+                    if (parsed.usage) {
+                        updateContextUsage(parsed.usage.prompt_tokens ?? 0, parsed.usage.completion_tokens ?? 0);
+                    }
+
                     const choice = parsed.choices?.[0];
                     if (!choice) continue;
 
@@ -855,6 +922,11 @@ const AssistantApp = (() => {
                     if (fullText) {
                         textEl.textContent = fullText;
                         dom.chatArea.scrollTop = dom.chatArea.scrollHeight;
+                    }
+
+                    // Capture usage from non-streaming response
+                    if (parsed.usage) {
+                        updateContextUsage(parsed.usage.prompt_tokens ?? 0, parsed.usage.completion_tokens ?? 0);
                     }
                 } catch (e) { /* skip */ }
             }

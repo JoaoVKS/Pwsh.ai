@@ -1340,3 +1340,55 @@ body {
     opacity: 0.55;
     cursor: not-allowed;
 }
+
+/* ================================
+   Context Usage Bar
+   ================================ */
+#context-usage {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.context-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(37, 99, 235, 0.10);
+    border: 1px solid rgba(37, 99, 235, 0.30);
+    border-radius: 20px;
+    padding: 5px 12px;
+    white-space: nowrap;
+}
+
+.context-label {
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.context-bar-bg {
+    width: 72px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.10);
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.context-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease, background 0.4s ease;
+    min-width: 3px;
+}
+
+.context-pct {
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    color: #64748b;
+    flex-shrink: 0;
+    min-width: 36px;
+    text-align: right;
+}
