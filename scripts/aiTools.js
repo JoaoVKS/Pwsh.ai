@@ -55,6 +55,12 @@ class AiTools {
     async handleCurlFetch(curlString) {
         try {
             const { url, method, headers, body } = parseCurl(curlString);
+
+            // Add User-Agent if not already present
+            if (!headers['User-Agent'] && !headers['user-agent']) {
+                headers['User-Agent'] = 'Pwsh.ai/1.0 (https://github.com/JoaoVKS/Pwsh.ai)';
+            }
+            
             const response = await this.webWrap.ProxyFetch(url, { method, headers, body });
             return await response.text();
         } catch (error) {
@@ -74,15 +80,33 @@ class AiTools {
             };
             const body = JSON.stringify({
                 q: query,
-                country: "US",
-                search_lang: "en",
-                count: 3
+                count: 5,
+                extra_snippets: true,
+                safe_search: 'off',
+                text_decorations: false
             });
             const response = await this.webWrap.ProxyFetch(url, { method: 'POST', headers, body });
             const jsonReturn = await response.text();
             const data = JSON.parse(jsonReturn);
-            if(data?.web?.results?.length) {
-                return data.web.results.map(r => `Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.description}`).join('\n\n');
+            
+            const results = [];
+            
+            // Add news results first
+            if (data?.news?.results?.length) {
+                data.news.results.slice(0, 3).forEach(r => {
+                    results.push(`[NEWS] Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.description}`);
+                });
+            }
+            
+            // Add web results
+            if (data?.web?.results?.length) {
+                data.web.results.slice(0, 4).forEach(r => {
+                    results.push(`Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.description}`);
+                });
+            }
+            
+            if (results.length) {
+                return results.join('\n\n');
             }
         } catch (error) {
             console.error("WebSearch error:", error);
