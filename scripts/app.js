@@ -1011,7 +1011,9 @@ const AssistantApp = (() => {
             const argsStr = JSON.stringify(tc.function.arguments);
             const argsEl = document.createElement('code');
             argsEl.className = 'tool-call-args';
+            argsEl.dataset.fullArgs = argsStr;
             argsEl.textContent = argsStr.length > 120 ? argsStr.slice(0, 120) + '…' : argsStr;
+            argsEl.innerHTML = argsEl.textContent + "<button type='button' onclick='copyArgs(this)' class='copy-args-btn' title='Copy tool arguments'>📋</button> ";
             badge.appendChild(argsEl);
 
             const resultEl = document.createElement('div');
@@ -1545,6 +1547,19 @@ function initResizeHandle() {
         leftPanel.style.width = '';
         rightPanel.style.flex = '1';
         rightPanel.style.minWidth = '';
+    });
+}
+
+function copyArgs(button) {
+    const argsEl = button.parentElement;
+    if (!argsEl) return;
+    const fullArgs = argsEl.dataset.fullArgs || argsEl.textContent || '';
+    navigator.clipboard.writeText(fullArgs).then(() => {
+        button.textContent = '✅';
+        setTimeout(() => (button.textContent = '📋'), 2000);
+    }).catch(() => {
+        button.textContent = '❌';
+        setTimeout(() => (button.textContent = '📋'), 2000);
     });
 }
 
