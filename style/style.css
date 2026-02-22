@@ -321,6 +321,88 @@ body {
 }
 
 /* ===========================
+   Tool-call Badges
+   =========================== */
+.tool-call-badge {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: rgba(139, 92, 246, 0.1);
+    border-left: 3px solid #8b5cf6;
+    border-radius: 6px;
+    margin: 4px 0;
+    font-size: 13px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.tool-call-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-call-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.tool-call-name {
+    font-weight: 700;
+    color: #c4b5fd;
+    letter-spacing: 0.3px;
+}
+
+.tool-call-status {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.tool-status-pending {
+    background: rgba(156, 163, 175, 0.2);
+    color: #9ca3af;
+}
+
+.tool-status-running {
+    background: rgba(139, 92, 246, 0.25);
+    color: #a78bfa;
+    animation: tool-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tool-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+}
+
+.tool-status-done {
+    background: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+}
+
+.tool-status-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+.tool-call-args {
+    display: block;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 12px;
+    color: #a78bfa;
+    word-break: break-all;
+    white-space: pre-wrap;
+}
+/* ===========================
    Input Container
    =========================== */
 .input-container {
@@ -473,6 +555,24 @@ body {
 .send-btn:hover {
     background: #1d4ed8;
     color: #fff;
+}
+
+/* Stop button */
+.stop-btn {
+    background: #dc2626;
+    color: #fff;
+    animation: pulse-stop 1.4s ease-in-out infinite;
+}
+
+.stop-btn:hover {
+    background: #b91c1c;
+    color: #fff;
+}
+
+@keyframes pulse-stop {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }
 
 /* ===========================

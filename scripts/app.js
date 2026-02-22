@@ -1,6 +1,16 @@
 // AI Assistant — Main Application Logic
 // Modules: Image Attachment, Voice Recognition, Chat UI
 let config = {};
+let aiTools = null; // AiTools instance — initialised after DOM ready
+
+// Build the effective system prompt = user-defined prompt + tools description
+function buildSystemPromptWithTools() {
+    const base       = config?.ai?.systemPrompt || '';
+    const toolsBlock = aiTools ? aiTools.getToolsSystemPrompt() : '';
+    if (!toolsBlock) return base;
+    return base ? `${base}\n\n---\n${toolsBlock}` : toolsBlock;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     (async () => {
         if (typeof webWrap === 'undefined') {
@@ -13,6 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(config);
         checkConfig();
         updateModelIndicator();
+
+        // Initialise tool engine after config is loaded so it has access to API keys
+        if (typeof AiTools !== 'undefined') {
+            aiTools = new AiTools(config);
+        } else {
+            console.warn('AiTools class not found — tool calling disabled');
+        }
         } catch (error) {
             console.error('Could not load JSON:', error);
         }
@@ -117,7 +134,13 @@ const SettingsModal = (() => {
         document.getElementById('cfg-gemini-model').value       = ai.gemini?.model       || '';
         document.getElementById('cfg-openrouter-apikey').value  = ai.openrouter?.apiKey  || '';
         document.getElementById('cfg-openrouter-model').value   = ai.openrouter?.model   || '';
+        document.getElementById('cfg-bravesearch-apikey').value = ai.toolsAuth?.braveSearch?.apiKey || '';
         document.getElementById('cfg-systemprompt').value       = ai.systemPrompt        || '';
+        // Fall back to generated default when not yet saved
+        document.getElementById('cfg-toolsprompt').value        =
+            ai.toolsPrompt !== undefined
+                ? ai.toolsPrompt
+                : (aiTools ? aiTools.getToolsSystemPrompt() : '');
 
         overlay.hidden = false;
     }
@@ -125,7 +148,7 @@ const SettingsModal = (() => {
     function closeModal() {
         overlay.hidden = true;
         // Reset API key visibility
-        ['cfg-gemini-apikey', 'cfg-openrouter-apikey'].forEach(id => {
+        ['cfg-gemini-apikey', 'cfg-openrouter-apikey', 'cfg-bravesearch-apikey'].forEach(id => {
             const input = document.getElementById(id);
             if (!input || input.type === 'password') return;
             input.type = 'password';
@@ -152,7 +175,13 @@ const SettingsModal = (() => {
                     apiKey: document.getElementById('cfg-openrouter-apikey').value,
                     model:  document.getElementById('cfg-openrouter-model').value
                 },
-                systemPrompt: document.getElementById('cfg-systemprompt').value
+                toolsAuth: {
+                    braveSearch: {
+                        apiKey: document.getElementById('cfg-bravesearch-apikey').value
+                    }
+                },
+                systemPrompt: document.getElementById('cfg-systemprompt').value,
+                toolsPrompt:  document.getElementById('cfg-toolsprompt').value
             }
         };
 
@@ -210,6 +239,7 @@ const AssistantApp = (() => {
     const SILENCE_TIMEOUT = 3000;
 
     let conversationHistory = [];
+    let loopAborted = false;
 
     let audioCtx = null;
     let analyser = null;
@@ -222,6 +252,7 @@ const AssistantApp = (() => {
         dom.chatArea = document.getElementById('chat-area');
         dom.messageInput = document.getElementById('message-input');
         dom.sendBtn = document.getElementById('send-btn');
+        dom.stopBtn = document.getElementById('stop-btn');
         dom.attachBtn = document.getElementById('attach-btn');
         dom.fileInput = document.getElementById('file-input');
         dom.micBtn = document.getElementById('mic-btn');
@@ -261,6 +292,7 @@ const AssistantApp = (() => {
 
     function bindEvents() {
         dom.sendBtn.addEventListener('click', handleSend);
+        dom.stopBtn.addEventListener('click', () => { loopAborted = true; });
         dom.attachBtn.addEventListener('click', () => dom.fileInput.click());
         dom.fileInput.addEventListener('change', handleFilesSelected);
         dom.micBtn.addEventListener('click', toggleVoice);
@@ -559,21 +591,27 @@ const AssistantApp = (() => {
         let lastIndex = 0;
         const cmdRegex = /<CMD>([\s\S]*?)<\/CMD>/gi;
         const decisionRegex = /<(CONTINUE|WAIT|STOP)>/gi;
-        
+        const toolRegex = /<TOOL\s+name="([^"]+)">([\s\S]*?)<\/TOOL>/gi;
+
         // Process all tags
         let allMatches = [];
         let match;
-        
+
         // Find all CMD tags
         while ((match = cmdRegex.exec(text)) !== null) {
             allMatches.push({ type: 'cmd', index: match.index, length: match[0].length, content: match[1] });
         }
-        
+
         // Find all decision tags
         while ((match = decisionRegex.exec(text)) !== null) {
             allMatches.push({ type: 'decision', index: match.index, length: match[0].length, decision: match[1] });
         }
-        
+
+        // Find all TOOL tags
+        while ((match = toolRegex.exec(text)) !== null) {
+            allMatches.push({ type: 'tool', index: match.index, length: match[0].length, toolName: match[1], toolContent: match[2].trim() });
+        }
+
         // Sort matches by index
         allMatches.sort((a, b) => a.index - b.index);
         
@@ -626,6 +664,43 @@ const AssistantApp = (() => {
                 decisionEl.appendChild(iconSpan);
                 decisionEl.appendChild(labelSpan);
                 container.appendChild(decisionEl);
+
+            } else if (m.type === 'tool') {
+                // Tool-call badge
+                const toolEl = document.createElement('div');
+                toolEl.className = 'tool-call-badge';
+                toolEl.dataset.toolName = m.toolName;
+                toolEl.dataset.toolContent = m.toolContent;
+
+                const headerRow = document.createElement('div');
+                headerRow.className = 'tool-call-header';
+
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'tool-call-icon';
+                iconSpan.textContent = '🔧';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'tool-call-name';
+                nameSpan.textContent = m.toolName;
+
+                const statusSpan = document.createElement('span');
+                statusSpan.className = 'tool-call-status tool-status-pending';
+                statusSpan.textContent = 'pending';
+
+                headerRow.appendChild(iconSpan);
+                headerRow.appendChild(nameSpan);
+                headerRow.appendChild(statusSpan);
+                toolEl.appendChild(headerRow);
+
+                // Args preview
+                const argsEl = document.createElement('code');
+                argsEl.className = 'tool-call-args';
+                argsEl.textContent = m.toolContent.length > 120
+                    ? m.toolContent.slice(0, 120) + '…'
+                    : m.toolContent;
+                toolEl.appendChild(argsEl);
+
+                container.appendChild(toolEl);
             }
             
             lastIndex = m.index + m.length;
@@ -699,55 +774,82 @@ const AssistantApp = (() => {
         dom.messageInput.focus();
 
         // Call AI with iterative feedback loop
+        loopAborted = false;
+        dom.stopBtn.style.display = 'flex';
+        dom.sendBtn.disabled = true;
+
         let statusAI = 'working';
         let lastAIBubble = null;
-        while (statusAI === 'working') {
+        while (statusAI === 'working' && !loopAborted) {
             const aiResponse = await sendToAI();
             lastAIBubble = dom.chatArea.querySelector('.message-bubble.assistant:last-of-type');
-            if(aiResponse){
+            if (aiResponse) {
                 console.log('AI response received');
-                // Extract all <CMD>...</CMD> contents into a list
+
+                // --- Extract <CMD> tags ---
                 const cmdRegex = /<CMD>([\s\S]*?)<\/CMD>/gi;
                 const commands = [];
                 let match;
                 while ((match = cmdRegex.exec(aiResponse)) !== null) {
                     commands.push(match[1].trim());
                 }
-                if (commands.length > 0) {
-                    console.log('Commands found:', commands);
-                    // Remove success class if it existed from a previous response
+
+                // --- Extract <TOOL> tags ---
+                // Collect badges by DOM order — content-matching is unreliable for multi-line args
+                const toolBadgeEls = lastAIBubble
+                    ? [...lastAIBubble.querySelectorAll('.tool-call-badge')]
+                    : [];
+                const toolRegex = /<TOOL\s+name="([^"]+)">([\s\S]*?)<\/TOOL>/gi;
+                const toolMatches = [];
+                while ((match = toolRegex.exec(aiResponse)) !== null) {
+                    const toolName    = match[1];
+                    const toolContent = match[2].trim();
+                    const badge       = toolBadgeEls[toolMatches.length] || null;
+                    toolMatches.push({ toolName, toolContent, badge });
+                }
+
+                const hasCmds  = commands.length > 0;
+                const hasTools = toolMatches.length > 0;
+
+                if (hasCmds || hasTools) {
                     if (lastAIBubble) lastAIBubble.classList.remove('ai-final-response');
-                    
-                    // Execute commands and get their outputs
-                    const cmdResults = await executeCommands(commands);
-                    
-                    // Add CMD results to conversation history for AI to evaluate
-                    const resultsText = `RESULTADOS DOS COMANDOS EXECUTADOS:\n${cmdResults}`;
-                    conversationHistory.push({ 
-                        role: 'user', 
-                        parts: [{ text: resultsText }] 
-                    });
-                    
-                    console.log('Sending CMD results back to AI for evaluation...');
-                    // Continue loop — AI will decide if it needs more info or if it's done
-                } else {
-                    // No more commands — AI response is final
-                    console.log('No more commands found, stopping loop');
-                    // Mark final response bubble with success class (green)
-                    if (lastAIBubble) {
-                        lastAIBubble.classList.add('ai-final-response');
+                    let resultsText = '';
+
+                    if (hasCmds) {
+                        console.log('Commands found:', commands);
+                        const cmdResults = await executeCommands(commands);
+                        resultsText += `COMMAND RESULTS:\n${cmdResults}\n`;
                     }
+
+                    if (hasTools) {
+                        console.log('Tool calls found:', toolMatches.map(t => t.toolName));
+                        const toolResults = await executeToolCalls(toolMatches);
+                        resultsText += `TOOL RESULTS:\n${toolResults}\n`;
+                    }
+
+                    const feedbackMessage = resultsText.trim() +
+                        '\n\n[System] All tools/commands finished. Use the results above to answer the user\'s original request. Do NOT emit more <TOOL> or <CMD> tags unless you genuinely need additional data.';
+
+                    conversationHistory.push({
+                        role: 'user',
+                        parts: [{ text: feedbackMessage }]
+                    });
+
+                    console.log('Sending results back to AI for evaluation…');
+                } else {
+                    // No more actions — AI response is final
+                    console.log('No more actions found, stopping loop');
+                    if (lastAIBubble) lastAIBubble.classList.add('ai-final-response');
                     statusAI = 'done';
                 }
             } else {
                 statusAI = 'done';
-                // Mark final response bubble with success class even if empty
-                if (lastAIBubble) {
-                    lastAIBubble.classList.add('ai-final-response');
-                }
+                if (lastAIBubble) lastAIBubble.classList.add('ai-final-response');
             }
         }
         statusAI = 'done';
+        dom.stopBtn.style.display = 'none';
+        dom.sendBtn.disabled = false;
     }
 
     // ================================
@@ -808,9 +910,10 @@ const AssistantApp = (() => {
             contents: conversationHistory,
         };
 
-        if (config.ai.systemPrompt) {
+        const effectiveSystemPrompt = buildSystemPromptWithTools();
+        if (effectiveSystemPrompt) {
             body.system_instruction = {
-                parts: [{ text: config.ai.systemPrompt }]
+                parts: [{ text: effectiveSystemPrompt }]
             };
         }
 
@@ -916,9 +1019,12 @@ const AssistantApp = (() => {
 
         // Build messages in OpenAI format
         const messages = [];
-        if (config.ai.systemPrompt) {
-            messages.push({ role: 'system', content: config.ai.systemPrompt });
+        const effectiveSystemPrompt = buildSystemPromptWithTools();
+        if (effectiveSystemPrompt) {
+            messages.push({ role: 'system', content: effectiveSystemPrompt });
         }
+
+        console.log('Sending conversation history to OpenRouter:', messages);
         messages.push(...convertHistoryToOpenAI(conversationHistory));
 
         const body = {
@@ -1383,6 +1489,75 @@ const AssistantApp = (() => {
 
     function registerCommand(id, command) {
         cmdManager.addCommand(id, command);
+    }
+
+    // ================================
+    //  Execute Tool Calls from AI
+    // ================================
+
+    async function executeToolCalls(toolMatches) {
+        if (!aiTools) {
+            console.warn('aiTools not available — cannot execute tool calls');
+            return 'Error: tool engine not initialised.';
+        }
+
+        const toolOutputs = [];
+
+        for (const { toolName, toolContent, badge } of toolMatches) {
+            // Update badge status in the chat bubble
+            const statusEl = badge?.querySelector('.tool-call-status');
+            const resultEl = badge?.querySelector('.tool-call-result');
+
+            const setStatus = (label, cssClass) => {
+                if (!statusEl) return;
+                statusEl.textContent = label;
+                statusEl.className = `tool-call-status ${cssClass}`;
+            };
+
+            // Show a side-panel entry so the user can track execution
+            const panelId = `tool_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+            const panelLabel = `🔧 ${toolName}: ${toolContent.length > 50 ? toolContent.slice(0, 50) + '…' : toolContent}`;
+            const panelEntry = cmdManager.addCommand(panelId, panelLabel);
+            panelEntry.showConfirmBtn(false);
+            panelEntry.showSpinner(true);
+            panelEntry.setStatus('running', '#8b5cf6');
+
+            setStatus('running…', 'tool-status-running');
+
+            let resultText = '';
+            try {
+                resultText = await aiTools.ToolCall(toolName, toolContent);
+                resultText = String(resultText ?? '');
+
+                panelEntry.appendOutput(resultText.slice(0, 4000));
+                panelEntry.setStatus('done', '#22c55e');
+                panelEntry.showSpinner(false);
+
+                setStatus('done ✓', 'tool-status-done');
+                if (resultEl) {
+                    const preview = resultText.length > 400 ? resultText.slice(0, 400) + '\n… (truncated)' : resultText;
+                    resultEl.textContent = preview;
+                    resultEl.style.display = 'block';
+                }
+            } catch (err) {
+                resultText = `Error: ${err.message}`;
+                panelEntry.appendOutput(resultText);
+                panelEntry.setStatus('error', '#ef4444');
+                panelEntry.showSpinner(false);
+
+                setStatus('error', 'tool-status-error');
+                if (resultEl) {
+                    resultEl.textContent = resultText;
+                    resultEl.style.display = 'block';
+                }
+            }
+
+            toolOutputs.push({ toolName, args: toolContent, output: resultText || '(no output)' });
+        }
+
+        return toolOutputs
+            .map(t => `Tool: ${t.toolName}\nArgs: ${t.args}\nResult:\n${t.output}`)
+            .join('\n---\n');
     }
 
     function unregisterCommand(id) {
