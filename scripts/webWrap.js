@@ -7,7 +7,6 @@ class WebWrapClient {
             if (!message?.type) {
                 return;
             }
-            console.log("Received message:", message);
             const callbacks = this.handlers.get(message.type) || [];
             callbacks.forEach((callback) => callback(message));
         });

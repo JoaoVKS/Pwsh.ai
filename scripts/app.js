@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
         const response = await fetch('./scripts/config.json');
         config = await response.json();
-        console.log(config);
         checkConfig();
         updateModelIndicator();
 
@@ -750,7 +749,6 @@ const AssistantApp = (() => {
                     });
 
                     // Execute all tools; collect results
-                    console.log('Tool calls:', toolCalls.map(tc => tc.function.name));
                     const toolResults = await executeNativeToolCalls(toolCalls, responseBubble);
 
                     // Push one tool-role message per result
