@@ -1014,11 +1014,6 @@ const AssistantApp = (() => {
             argsEl.innerHTML = argsEl.textContent + "<button type='button' onclick='copyArgs(this)' class='copy-args-btn' title='Copy tool arguments'>📋</button> ";
             badge.appendChild(argsEl);
 
-            const resultEl = document.createElement('div');
-            resultEl.className = 'tool-call-result';
-            resultEl.style.display = 'none';
-            badge.appendChild(resultEl);
-
             container.appendChild(badge);
         }
 
