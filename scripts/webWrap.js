@@ -1,5 +1,3 @@
-//BASE PATH = basePATH
-
 class WebWrapClient {
     constructor() {
         this.handlers = new Map();

@@ -10,34 +10,34 @@ function buildSystemPrompt() {
 }
 
 function playSound(soundPath) {
-  let soundEffect = new Audio(soundPath);
-  soundEffect.onended = function() {
+    let soundEffect = new Audio(soundPath);
+    soundEffect.onended = function () {
         this.src = "";
         this.remove();
         soundEffect = null;
     };
-  soundEffect.play();
+    soundEffect.play();
 
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     (async () => {
         if (typeof webWrap === 'undefined') {
-        document.body.innerHTML = '<h2 style="color:red;padding:2rem;">Error: webWrap.js not found</h2>';
-        return;
-    }
-    try {
-        const response = await fetch('./scripts/config.json');
-        config = await response.json();
-        checkConfig();
-        updateModelIndicator();
-
-        // Initialise tool engine after config is loaded so it has access to API keys
-        if (typeof AiTools !== 'undefined') {
-            aiTools = new AiTools(config);
-        } else {
-            console.warn('AiTools class not found — tool calling disabled');
+            document.body.innerHTML = '<h2 style="color:red;padding:2rem;">Error: webWrap.js not found</h2>';
+            return;
         }
+        try {
+            const response = await fetch('./scripts/config.json');
+            config = await response.json();
+            checkConfig();
+            updateModelIndicator();
+
+            // Initialise tool engine after config is loaded so it has access to API keys
+            if (typeof AiTools !== 'undefined') {
+                aiTools = new AiTools(config);
+            } else {
+                console.warn('AiTools class not found — tool calling disabled');
+            }
         } catch (error) {
             console.error('Could not load JSON:', error);
         }
@@ -57,7 +57,7 @@ function checkConfig() {
     const ai = config?.ai || {};
     const openrouterKey = ai.openrouter?.apiKey || '';
     const isOpenrouterDefault = !openrouterKey || openrouterKey === 'YOUR_OPENROUTER_API_KEY';
-    
+
     // If both API keys are empty or have default values, open the configuration modal
     if (isOpenrouterDefault) {
         // Both unconfigured — force user to configure
@@ -66,7 +66,7 @@ function checkConfig() {
         // Auto-fallback: use OpenRouter since Gemini is not configured
         config.ai.provider = 'openrouter';
         updateModelIndicator();
-    } 
+    }
 }
 
 // ================================
@@ -95,13 +95,13 @@ async function updateModelIndicator() {
     const provider = ai.provider || '—';
 
     const providerEl = document.getElementById('model-provider-label');
-    const modelEl    = document.getElementById('model-name-label');
+    const modelEl = document.getElementById('model-name-label');
     if (providerEl) providerEl.textContent = provider;
-    if (modelEl)    modelEl.textContent    = config?.ai?.openrouter?.model || '—';
+    if (modelEl) modelEl.textContent = config?.ai?.openrouter?.model || '—';
 
     // Fetch context window size for the active model
     const apiKey = ai.openrouter?.apiKey || '';
-    const model  = ai.openrouter?.model  || '';
+    const model = ai.openrouter?.model || '';
     const isDefault = !apiKey || apiKey === 'YOUR_OPENROUTER_API_KEY';
     if (!isDefault && model) {
         modelContextLength = await fetchModelContextLength(apiKey, model);
@@ -148,16 +148,16 @@ const SettingsModal = (() => {
     let overlay, saveBtn, cancelBtn, closeBtn;
 
     function init() {
-        overlay   = document.getElementById('settings-modal');
-        saveBtn   = document.getElementById('btn-modal-save');
+        overlay = document.getElementById('settings-modal');
+        saveBtn = document.getElementById('btn-modal-save');
         cancelBtn = document.getElementById('btn-modal-cancel');
-        closeBtn  = document.getElementById('modal-close-btn');
+        closeBtn = document.getElementById('modal-close-btn');
 
         document.getElementById('settings-btn').addEventListener('click', openModal);
         document.getElementById('reset-btn').addEventListener('click', () => webWrap.reloadBrowser());
-        closeBtn .addEventListener('click', closeModal);
+        closeBtn.addEventListener('click', closeModal);
         cancelBtn.addEventListener('click', closeModal);
-        saveBtn  .addEventListener('click', saveAndRestart);
+        saveBtn.addEventListener('click', saveAndRestart);
 
         // Reveal / hide API key buttons
         overlay.addEventListener('click', (e) => {
@@ -167,8 +167,8 @@ const SettingsModal = (() => {
             if (!input) return;
             const show = input.type === 'password';
             input.type = show ? 'text' : 'password';
-            btn.querySelector('.eye-icon')    .style.display = show ? 'none'  : '';
-            btn.querySelector('.eye-off-icon').style.display = show ? ''      : 'none';
+            btn.querySelector('.eye-icon').style.display = show ? 'none' : '';
+            btn.querySelector('.eye-off-icon').style.display = show ? '' : 'none';
         });
 
         // Close on backdrop click
@@ -188,11 +188,12 @@ const SettingsModal = (() => {
         const providerSel = document.getElementById('cfg-provider');
         providerSel.value = ai.provider || 'openrouter';
 
-        document.getElementById('cfg-openrouter-apikey').value  = ai.openrouter?.apiKey  || '';
-        document.getElementById('cfg-openrouter-model').value   = ai.openrouter?.model   || '';
+        document.getElementById('cfg-openrouter-apikey').value = ai.openrouter?.apiKey || '';
+        document.getElementById('cfg-openrouter-model').value = ai.openrouter?.model || '';
         document.getElementById('cfg-openrouter-enable-tools').checked = ai.openrouter?.enableTools !== false;
         document.getElementById('cfg-bravesearch-apikey').value = ai.toolsAuth?.braveSearch?.apiKey || '';
-        document.getElementById('cfg-systemprompt').value       = ai.systemPrompt        || '';
+        document.getElementById('cfg-mailersend-apikey').value = ai.toolsAuth?.mailerSend?.apiKey || '';
+        document.getElementById('cfg-systemprompt').value = ai.systemPrompt || '';
 
         overlay.hidden = false;
     }
@@ -206,7 +207,7 @@ const SettingsModal = (() => {
             input.type = 'password';
             const btn = overlay.querySelector(`.reveal-btn[data-target="${id}"]`);
             if (btn) {
-                btn.querySelector('.eye-icon')    .style.display = '';
+                btn.querySelector('.eye-icon').style.display = '';
                 btn.querySelector('.eye-off-icon').style.display = 'none';
             }
         });
@@ -220,13 +221,16 @@ const SettingsModal = (() => {
             ai: {
                 provider: document.getElementById('cfg-provider').value,
                 openrouter: {
-                    apiKey:       document.getElementById('cfg-openrouter-apikey').value,
-                    model:        document.getElementById('cfg-openrouter-model').value,
-                    enableTools:  document.getElementById('cfg-openrouter-enable-tools').checked
+                    apiKey: document.getElementById('cfg-openrouter-apikey').value,
+                    model: document.getElementById('cfg-openrouter-model').value,
+                    enableTools: document.getElementById('cfg-openrouter-enable-tools').checked
                 },
                 toolsAuth: {
                     braveSearch: {
                         apiKey: document.getElementById('cfg-bravesearch-apikey').value
+                    },
+                    mailerSend: {
+                        apiKey: document.getElementById('cfg-mailersend-apikey').value
                     }
                 },
                 systemPrompt: document.getElementById('cfg-systemprompt').value,
@@ -235,23 +239,9 @@ const SettingsModal = (() => {
 
         const jsonStr = JSON.stringify(newConfig, null, 4);
 
-        // Encode as base64 for safe PowerShell transfer
-        const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
-
         try {
-            // Spawn a dedicated writer session
-            const writerId = webWrap.createPwsh('cfg-writer', false);
-            await waitMs(600);
-
-            const psCmd = [
-                `$raw = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${b64}'))`,
-                `[System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath('./scripts/config.json'), $raw, [System.Text.Encoding]::UTF8)`,
-                `Write-Output 'CFG_SAVED'`
-            ].join('; ');
-
-            webWrap.sendCommand(writerId, psCmd);
-            await waitMs(800);
-            webWrap.killPwsh(writerId);
+            // Use aiTools fileWrite method
+            await aiTools.handleFileWrite('./scripts/config.json', jsonStr);
         } catch (err) {
             console.error('Error writing config:', err);
         }
@@ -262,13 +252,14 @@ const SettingsModal = (() => {
         try {
             const response = await fetch('./scripts/config.json');
             config = await response.json();
+            await waitMs(800);
+            webWrap.killPwsh(writerId);
         }
-        catch (error)
-        {
+        catch (error) {
             console.error('Could not load JSON after saving:', error);
         }
         webWrap.reloadBrowser();
-        
+
     }
 
     function waitMs(ms) {
@@ -325,7 +316,7 @@ const AssistantApp = (() => {
         console.log('AI Assistant initialized');
 
     }
-    
+
     // Cleanup PowerShell session before page unload
     function setupUnloadHandler() {
         window.addEventListener('beforeunload', () => {
@@ -783,7 +774,7 @@ const AssistantApp = (() => {
         const provider = config.ai.provider || 'openrouter';
         if (provider === 'openrouter') {
             return sendToOpenRouter();
-        } 
+        }
     }
 
     // --- OpenRouter Provider ---
@@ -801,7 +792,7 @@ const AssistantApp = (() => {
 
         // History is already in OpenAI format — use directly
         const messages = [];
-        const effectiveSystemPrompt = buildSystemPrompt() + "# Initial folder: " + basePATH;
+        const effectiveSystemPrompt = buildSystemPrompt();
         if (effectiveSystemPrompt) {
             messages.push({ role: 'system', content: effectiveSystemPrompt });
         }
@@ -964,7 +955,7 @@ const AssistantApp = (() => {
             typingBubble.innerHTML = '';
             const p = document.createElement('p');
             const isTimeout = error.message?.toLowerCase().includes('timeout') ||
-                              error.message?.toLowerCase().includes('cancelled');
+                error.message?.toLowerCase().includes('cancelled');
             p.textContent = isTimeout
                 ? `Erro: Timeout na API (${model}). Este modelo pode não suportar tool calling — tente desativar "enableTools" nas configurações ou mude para um modelo compatível (ex: openai/gpt-4o-mini).`
                 : `Erro: ${error.message}`;
@@ -1471,7 +1462,7 @@ const AssistantApp = (() => {
         init,
         killSession() {
             if (pwshRequestId) {
-                try { webWrap.killPwsh(pwshRequestId); } catch (e) {}
+                try { webWrap.killPwsh(pwshRequestId); } catch (e) { }
                 pwshRequestId = null;
             }
         }
