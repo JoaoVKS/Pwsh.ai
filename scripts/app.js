@@ -323,6 +323,7 @@ const AssistantApp = (() => {
         dom.messageInput.focus();
         setupUnloadHandler();
         console.log('AI Assistant initialized');
+
     }
     
     // Cleanup PowerShell session before page unload
@@ -800,7 +801,7 @@ const AssistantApp = (() => {
 
         // History is already in OpenAI format — use directly
         const messages = [];
-        const effectiveSystemPrompt = buildSystemPrompt();
+        const effectiveSystemPrompt = buildSystemPrompt() + "# Initial folder: " + basePATH;
         if (effectiveSystemPrompt) {
             messages.push({ role: 'system', content: effectiveSystemPrompt });
         }
