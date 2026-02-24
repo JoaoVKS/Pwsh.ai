@@ -61,6 +61,65 @@ class AiTools {
                         required: ["command"]
                     }
                 }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "fileWrite",
+                    description: "Writes content to a text file on the Windows host. Creates the file if it doesn't exist or overwrites it if it does.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            filePath: {
+                                type: "string",
+                                description: "Full path to the file to write to, if only"
+                            },
+                            content: {
+                                type: "string",
+                                description: "Content to write to the file"
+                            }
+                        },
+                        required: ["filePath", "content"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "fileRead",
+                    description: "Reads the content of a text file from the Windows host and returns it as a string.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            filePath: {
+                                type: "string",
+                                description: "Full path to the file to read"
+                            }
+                        },
+                        required: ["filePath"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "fileTextSearch",
+                    description: "Searches for text in a file and returns all matches with their line and column positions.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            filePath: {
+                                type: "string",
+                                description: "Full path to the file to search in"
+                            },
+                            searchText: {
+                                type: "string",
+                                description: "Text to search for (case-insensitive)"
+                            }
+                        },
+                        required: ["filePath", "searchText"]
+                    }
+                }
             }
         ];
     }
@@ -82,6 +141,20 @@ class AiTools {
             case "WebSearch": {
                 const query = (typeof args === 'string') ? args : (args?.search_query ?? JSON.stringify(args));
                 return this.handleWebSearch(query);
+            }
+            case "fileWrite": {
+                const filePath = (typeof args === 'string') ? args : (args?.filePath ?? '');
+                const content = (typeof args === 'string') ? '' : (args?.content ?? '');
+                return this.handleFileWrite(filePath, content);
+            }
+            case "fileRead": {
+                const filePath = (typeof args === 'string') ? args : (args?.filePath ?? '');
+                return this.handleFileRead(filePath);
+            }
+            case "fileTextSearch": {
+                const filePath = (typeof args === 'string') ? args : (args?.filePath ?? '');
+                const searchText = (typeof args === 'string') ? '' : (args?.searchText ?? '');
+                return this.handleFileTextSearch(filePath, searchText);
             }
             default:
                 throw new Error(`Unknown tool: ${functionName}`);
@@ -148,6 +221,66 @@ class AiTools {
             console.error("WebSearch error:", error);
             throw new Error("WebSearch failed: " + error.message);
         }
+    }
+
+    async handleFileWrite(filePath, content) {
+        return new Promise((resolve, reject) => {
+            const requestId = crypto.randomUUID();
+            const handler = (event) => {
+                const data = event.data;
+                if (data.requestId !== requestId) return;
+                window.chrome.webview.removeEventListener('message', handler);
+                if (data.type === 'fileWrite') {
+                    if (data.status === 0) {
+                        resolve(data.output || "File written successfully");
+                    } else {
+                        reject(new Error(data.output || "Failed to write file"));
+                    }
+                }
+            };
+            window.chrome.webview.addEventListener('message', handler);
+            this.webWrap.sendMessage("fileWrite", { filePath, content, requestId });
+        });
+    }
+
+    async handleFileRead(filePath) {
+        return new Promise((resolve, reject) => {
+            const requestId = crypto.randomUUID();
+            const handler = (event) => {
+                const data = event.data;
+                if (data.requestId !== requestId) return;
+                window.chrome.webview.removeEventListener('message', handler);
+                if (data.type === 'fileRead') {
+                    if (data.status === 0) {
+                        resolve(data.output || "");
+                    } else {
+                        reject(new Error(data.output || "Failed to read file"));
+                    }
+                }
+            };
+            window.chrome.webview.addEventListener('message', handler);
+            this.webWrap.sendMessage("fileRead", { filePath, requestId });
+        });
+    }
+
+    async handleFileTextSearch(filePath, searchText) {
+        return new Promise((resolve, reject) => {
+            const requestId = crypto.randomUUID();
+            const handler = (event) => {
+                const data = event.data;
+                if (data.requestId !== requestId) return;
+                window.chrome.webview.removeEventListener('message', handler);
+                if (data.type === 'fileTextSearch') {
+                    if (data.status === 0) {
+                        resolve(data.output || "No matches found");
+                    } else {
+                        reject(new Error(data.output || "Failed to search in file"));
+                    }
+                }
+            };
+            window.chrome.webview.addEventListener('message', handler);
+            this.webWrap.sendMessage("fileTextSearch", { filePath, searchText, requestId });
+        });
     }
 }
 
