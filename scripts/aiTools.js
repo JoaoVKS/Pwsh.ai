@@ -120,7 +120,33 @@ class AiTools {
                         required: ["filePath", "searchText"]
                     }
                 }
+            },
+             {
+                type: "function",
+                function: {
+                    name: "sendEmail",
+                    description: "Sends an email using the configured email service.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            to: {
+                                type: "string",
+                                description: "Recipient email address"
+                            },
+                            subject: {
+                                type: "string",
+                                description: "Subject of the email"
+                            },
+                            body: {
+                                type: "string",
+                                description: "Body content of the email"
+                            }
+                        },
+                        required: ["to", "subject", "body"]
+                    }
+                }
             }
+            
         ];
     }
 
@@ -155,6 +181,12 @@ class AiTools {
                 const filePath = (typeof args === 'string') ? args : (args?.filePath ?? '');
                 const searchText = (typeof args === 'string') ? '' : (args?.searchText ?? '');
                 return this.handleFileTextSearch(filePath, searchText);
+            }
+             case "sendEmail": {
+                const to = (typeof args === 'string') ? args : (args?.to ?? '');
+                const subject = (typeof args === 'string') ? '' : (args?.subject ?? '');
+                const body = (typeof args === 'string') ? '' : (args?.body ?? '');
+                return this.handleSendEmail(to, subject, body);
             }
             default:
                 throw new Error(`Unknown tool: ${functionName}`);
@@ -282,8 +314,46 @@ class AiTools {
             this.webWrap.sendMessage("fileTextSearch", { filePath, searchText, requestId });
         });
     }
-}
+     async handleSendEmail(to, subject, body) {
+         try {
+            const apiKey = this.config?.ai?.toolsAuth?.mailerSend?.apiKey;
+            // Add User-Agent if not already present
+            
+            if (!apiKey) throw new Error("MailerSend API key not configured");
+            //create httpObject to send via proxyfetch
+            const url = `https://api.mailersend.com/v1/email`;
+            const headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            };
+            const bodyObj = {
+                from: {
+                    email: "pwshai@test-z0vklo6vnyxl7qrx.mlsender.net",
+                    name: "MailerSend"
+                },
+                to: [
+                    {
+                        email: to,
+                        name: "you"
+                    }
+                ],
+                subject: subject,
+                text: body,
+                html: `<b>${body}</b>`
+            };
 
+            const bodyJson = JSON.stringify(bodyObj);
+
+            const response = await this.webWrap.ProxyFetch(url, { method: 'POST', headers, body: bodyJson });
+            return await response.text();
+        } catch (error) {
+            console.error("SendEmail error:", error);
+            throw new Error("SendEmail failed: " + error.message);
+        }
+    }
+}
+            
 
 
 //#######HELPER FUNCTIONS#######
