@@ -171,11 +171,6 @@ const SettingsModal = (() => {
             btn.querySelector('.eye-off-icon').style.display = show ? '' : 'none';
         });
 
-        // Close on backdrop click
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeModal();
-        });
-
         // Close on Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && !overlay.hidden) closeModal();
@@ -192,6 +187,9 @@ const SettingsModal = (() => {
         document.getElementById('cfg-openrouter-model').value = ai.openrouter?.model || '';
         document.getElementById('cfg-openrouter-enable-tools').checked = ai.openrouter?.enableTools !== false;
         document.getElementById('cfg-bravesearch-apikey').value = ai.toolsAuth?.braveSearch?.apiKey || '';
+        document.getElementById('cfg-bravesearch-order').value = ai.toolsAuth?.braveSearch?.order || '';
+        document.getElementById('cfg-tavily-apikey').value = ai.toolsAuth?.tavily?.apiKey || '';
+        document.getElementById('cfg-tavily-order').value = ai.toolsAuth?.tavily?.order || '';
         document.getElementById('cfg-mailersend-apikey').value = ai.toolsAuth?.mailerSend?.apiKey || '';
         document.getElementById('cfg-systemprompt').value = ai.systemPrompt || '';
 
@@ -201,7 +199,7 @@ const SettingsModal = (() => {
     function closeModal() {
         overlay.hidden = true;
         // Reset API key visibility
-        ['cfg-openrouter-apikey', 'cfg-bravesearch-apikey'].forEach(id => {
+        ['cfg-openrouter-apikey', 'cfg-bravesearch-apikey', 'cfg-tavily-apikey'].forEach(id => {
             const input = document.getElementById(id);
             if (!input || input.type === 'password') return;
             input.type = 'password';
@@ -227,7 +225,12 @@ const SettingsModal = (() => {
                 },
                 toolsAuth: {
                     braveSearch: {
-                        apiKey: document.getElementById('cfg-bravesearch-apikey').value
+                        apiKey: document.getElementById('cfg-bravesearch-apikey').value,
+                        order: parseInt(document.getElementById('cfg-bravesearch-order').value) || 1
+                    },
+                    tavily: {
+                        apiKey: document.getElementById('cfg-tavily-apikey').value,
+                        order: parseInt(document.getElementById('cfg-tavily-order').value) || 2
                     },
                     mailerSend: {
                         apiKey: document.getElementById('cfg-mailersend-apikey').value
@@ -632,6 +635,11 @@ const AssistantApp = (() => {
         md.className = 'markdown-body';
         marked.use({ gfm: true, breaks: true });
         md.innerHTML = marked.parse(text);
+        // Ensure all anchor tags open in new tabs
+        md.querySelectorAll('a').forEach(link => {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        });
         content.innerHTML = '';
         content.appendChild(md);
     }

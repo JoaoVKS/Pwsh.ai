@@ -98,7 +98,7 @@ body {
     z-index: 0;
     pointer-events: none;
     /* smooth multi-stop gradient (deep purple -> deep blue -> near-black) */
-    background: linear-gradient(140deg, rgb(114 60 200 / 44%) 0%, rgb(72 30 150 / 41%) 24%, rgb(34 45 140 / 42%) 44%, rgb(10 12 30 / 0%) 68%, rgba(0, 0, 0, 1) 96%);
+    background: linear-gradient(140deg, rgb(114 60 200 / 44%) 0%, rgb(72 30 150 / 41%) 24%, rgb(34 45 140 / 42%) 44%, rgb(121 0 101 / 35%) 68%, rgba(0, 0, 0, 1) 96%);
     /* smaller horizontal spread and pinned to top so lower areas can remain black */
     background-size: 160% 100%;
     background-position: top center;
@@ -1280,10 +1280,11 @@ body {
 }
 
 .modal-close-btn {
-    background: none;
+    background-color: #fd4b4b;
+    font-weight: bolder;
+    color: white;
     border: none;
     cursor: pointer;
-    color: #4b5563;
     font-size: 17px;
     line-height: 1;
     padding: 4px 8px;
@@ -1293,7 +1294,7 @@ body {
 
 .modal-close-btn:hover {
     color: #e0e0e0;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgb(255 0 0);
 }
 
 .modal-body {

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="style/style.css">
     <link rel="icon" type="image/ico" href="assets/Icon.png">
 </head>
+
 <body>
     <header class="main-header">
         <h1>Pwsh.AI <img class="PwshLogo" src="assets/Icon.png" alt="Clippy"> </h1>
@@ -16,12 +18,15 @@
                 <span class="model-name-label" id="model-name-label">Loading...</span>
             </div>
             <div id="context-usage"></div>
+            <button class="icon-btn settings-btn" id="reset-btn" title="Reset">
+                <p style="font-size: 20px;">⭮</p>
+            </button>
             <button class="icon-btn settings-btn" id="settings-btn" title="Settings">
                 <p style="font-size: 20px;">🛠</p>
             </button>
-              <button class="icon-btn settings-btn" id="reset-btn" title="Reset">
-                <p style="font-size: 20px;">⭮</p>
-            </button>
+            <a target="_blank" href="https://github.com/JoaoVKS/Pwsh.ai" class="icon-btn settings-btn" id="settings-btn" title="GitHub">
+                <img src="assets/git_small.png" alt="GitHub" style="width:18px;height:18px;filter: invert()">
+            </a>
         </div>
     </header>
 
@@ -43,10 +48,22 @@
                 <div class="form-group">
                     <label>API Key</label>
                     <div class="input-reveal">
-                        <input type="password" id="cfg-openrouter-apikey" placeholder="sk-or-v1-..." autocomplete="off" />
+                        <input type="password" id="cfg-openrouter-apikey" placeholder="sk-or-v1-..."
+                            autocomplete="off" />
                         <button type="button" class="reveal-btn" data-target="cfg-openrouter-apikey" title="Show/Hide">
-                            <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                style="display:none">
+                                <path
+                                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                <line x1="1" y1="1" x2="23" y2="23" />
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -55,41 +72,110 @@
                     <input type="text" id="cfg-openrouter-model" placeholder="arcee-ai/..." />
                 </div>
                 <div class="form-group" style="flex-direction:row;align-items:center;gap:8px;">
-                    <input type="checkbox" id="cfg-openrouter-enable-tools" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;" />
+                    <input type="checkbox" id="cfg-openrouter-enable-tools"
+                        style="width:16px;height:16px;cursor:pointer;flex-shrink:0;" />
                     <label for="cfg-openrouter-enable-tools" style="margin:0;cursor:pointer;">Enable native tool calling
-                        <span style="font-size:11px;font-weight:400;color:#6b7280;margin-left:4px;">disable if model times out or doesn’t support tools</span>
+                        <span style="font-size:11px;font-weight:400;color:#6b7280;margin-left:4px;">disable if model
+                            times out or doesn’t support tools</span>
                     </label>
                 </div>
                 <div class="form-section-title">Tools</div>
-                <div class="form-group">
-                    <label>Brave Search API Key</label>
-                    <div class="input-reveal">
-                        <input type="password" id="cfg-bravesearch-apikey" placeholder="BSA..." autocomplete="off" />
-                        <button type="button" class="reveal-btn" data-target="cfg-bravesearch-apikey" title="Show/Hide">
-                            <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        </button>
+                <div class="form-group" style="flex-direction: row; gap: 12px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <label>Brave Search API Key</label>
+                        <div class="input-reveal">
+                            <input type="password" id="cfg-bravesearch-apikey" placeholder="BSA..."
+                                autocomplete="off" />
+                            <button type="button" class="reveal-btn" data-target="cfg-bravesearch-apikey"
+                                title="Show/Hide">
+                                <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" style="display:none">
+                                    <path
+                                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                     <label>MailerSend API Key</label>
+                    <div style="width: 100px;">
+                        <label>Priority Order</label>
+                        <input type="number" id="cfg-bravesearch-order" min="1" placeholder="1" style="width: 100%;" />
+                    </div>
+                </div>
+                <div class="form-group" style="flex-direction: row; gap: 12px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <label>Tavily API Key</label>
+                        <div class="input-reveal">
+                            <input type="password" id="cfg-tavily-apikey" placeholder="tvly-..." autocomplete="off" />
+                            <button type="button" class="reveal-btn" data-target="cfg-tavily-apikey" title="Show/Hide">
+                                <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                    <circle cx="12" cy="12" r="3" />
+                                </svg>
+                                <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" style="display:none">
+                                    <path
+                                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                    <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div style="width: 100px;">
+                        <label>Priority Order</label>
+                        <input type="number" id="cfg-tavily-order" min="1" placeholder="2" style="width: 100%;" />
+                    </div>
+                </div>
+                <div class="form-section-title">Email</div>
+                <div class="form-group">
+                    <label>MailerSend API Key</label>
                     <div class="input-reveal">
                         <input type="password" id="cfg-mailersend-apikey" placeholder="MSA..." autocomplete="off" />
                         <button type="button" class="reveal-btn" data-target="cfg-mailersend-apikey" title="Show/Hide">
-                            <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            <svg class="eye-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <svg class="eye-off-icon" width="15" height="15" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                style="display:none">
+                                <path
+                                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                <line x1="1" y1="1" x2="23" y2="23" />
+                            </svg>
                         </button>
                     </div>
                 </div>
                 <div class="form-section-title">Behavior</div>
                 <div class="form-group">
                     <label>System Prompt</label>
-                    <textarea id="cfg-systemprompt" rows="8" placeholder="System instructions for the agent..."></textarea>
+                    <textarea id="cfg-systemprompt" rows="8"
+                        placeholder="System instructions for the agent..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-cancel" id="btn-modal-cancel">Cancel</button>
                 <button class="btn-save" id="btn-modal-save">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        style="display:inline;vertical-align:middle;margin-right:5px">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
                     </svg>
                     Save &amp; Restart
                 </button>
@@ -99,78 +185,82 @@
 
     <div class="app-layout">
         <div class="assistant-wrapper">
-        <!-- Chat messages area -->
-        <div class="chat-area" id="chat-area"></div>
+            <!-- Chat messages area -->
+            <div class="chat-area" id="chat-area"></div>
 
-        <!-- Input container (centered) -->
-        <div class="input-container">
-            <!-- Voice visualizer overlay -->
-            <div class="voice-visualizer" id="voice-visualizer">
-                <canvas id="voice-canvas"></canvas>
-                <span class="voice-label">Listening...</span>
+            <!-- Input container (centered) -->
+            <div class="input-container">
+                <!-- Voice visualizer overlay -->
+                <div class="voice-visualizer" id="voice-visualizer">
+                    <canvas id="voice-canvas"></canvas>
+                    <span class="voice-label">Listening...</span>
+                </div>
+
+                <!-- Image preview strip -->
+                <div class="image-preview-strip" id="image-preview-strip"></div>
+
+                <!-- Input row -->
+                <div class="input-row">
+                    <!-- Hidden file input -->
+                    <input type="file" id="file-input" accept="image/*" multiple hidden />
+
+                    <!-- Attach image button -->
+                    <button class="icon-btn" id="attach-btn" title="Attach Image">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                    </button>
+
+                    <!-- Text input -->
+                    <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+
+                    <!-- Mic button -->
+                    <button class="icon-btn" id="mic-btn" title="Voice Recognition">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="23" />
+                            <line x1="8" y1="23" x2="16" y2="23" />
+                        </svg>
+                    </button>
+
+                    <!-- Stop button (visible only while AI is processing) -->
+                    <button class="icon-btn stop-btn" id="stop-btn" title="Stop" style="display:none">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="4" y="4" width="16" height="16" rx="3" />
+                        </svg>
+                    </button>
+
+                    <!-- Send button -->
+                    <button class="icon-btn send-btn" id="send-btn" title="Send">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                    </button>
+                </div>
             </div>
-
-            <!-- Image preview strip -->
-            <div class="image-preview-strip" id="image-preview-strip"></div>
-
-            <!-- Input row -->
-            <div class="input-row">
-                <!-- Hidden file input -->
-                <input type="file" id="file-input" accept="image/*" multiple hidden />
-
-                <!-- Attach image button -->
-                <button class="icon-btn" id="attach-btn" title="Attach Image">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                        <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                </button>
-
-                <!-- Text input -->
-                <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
-
-                <!-- Mic button -->
-                <button class="icon-btn" id="mic-btn" title="Voice Recognition">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                        <line x1="12" y1="19" x2="12" y2="23"/>
-                        <line x1="8" y1="23" x2="16" y2="23"/>
-                    </svg>
-                </button>
-
-                <!-- Stop button (visible only while AI is processing) -->
-                <button class="icon-btn stop-btn" id="stop-btn" title="Stop" style="display:none">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                        <rect x="4" y="4" width="16" height="16" rx="3"/>
-                    </svg>
-                </button>
-
-                <!-- Send button -->
-                <button class="icon-btn send-btn" id="send-btn" title="Send">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="22" y1="2" x2="11" y2="13"/>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                    </svg>
-                </button>
+        </div>
+        <div class="resize-handle" id="resize-handle"></div>
+        <!-- CMD Side Panel -->
+        <div class="cmd-panel" id="cmd-panel">
+            <div class="cmd-panel-header">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+                <span>Processes</span>
+            </div>
+            <div class="cmd-panel-body" id="cmd-panel-body">
+                <div class="cmd-empty">No running commands</div>
             </div>
         </div>
-    </div>
-    <div class="resize-handle" id="resize-handle"></div>
-    <!-- CMD Side Panel -->
-    <div class="cmd-panel" id="cmd-panel">
-        <div class="cmd-panel-header">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="4 17 10 11 4 5"/>
-                <line x1="12" y1="19" x2="20" y2="19"/>
-            </svg>
-            <span>Processes</span>
-        </div>
-        <div class="cmd-panel-body" id="cmd-panel-body">
-            <div class="cmd-empty">No running commands</div>
-        </div>
-    </div>
     </div>
 
     <!-- Load dependencies -->
@@ -179,4 +269,5 @@
     <script src="scripts/aiTools.js"></script>
     <script src="scripts/app.js"></script>
 </body>
+
 </html>

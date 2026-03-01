@@ -94,7 +94,7 @@ class AiTools {
                             filePath: {
                                 type: "string",
                                 description: "Full path to the file to read"
-                            }
+                            },
                         },
                         required: ["filePath"]
                     }
@@ -174,14 +174,13 @@ class AiTools {
                     }
                 }
             },
-                        {
+            {
                 type: "function",
                 function: {
                     name: "sysInfo",
                     description: "Get information about host system, like, RAM usage, CPU load, temperature, disk usage etc. Useful for monitoring.",
                 }
             }
-
         ];
     }
 
@@ -194,6 +193,18 @@ class AiTools {
      * @returns {Promise<string>}
      */
     async ToolCall(functionName, args) {
+        // De-dupe: if args might be double-encoded, try parsing again
+        if (typeof args === 'string') {
+            try {
+                const parsed = JSON.parse(args);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    args = parsed;
+                }
+            } catch {
+                // Not JSON, keep as string
+            }
+        }
+
         switch (functionName) {
             case "CurlFetch": {
                 const curlStr = (typeof args === 'string') ? args : (args?.curl ?? JSON.stringify(args));
@@ -242,7 +253,52 @@ class AiTools {
             }
 
             const response = await this.webWrap.ProxyFetch(url, { method, headers, body });
-            return await response.text();
+            // ProxyFetch returns a custom response with plain object headers
+            const contentType = (response.headers?.['content-type'] || response.headers?.['Content-Type'] || '').toLowerCase();
+            //This contentTypes are safe to return as text, otherwise we will send the raw content to the main process to convert to markdown (for binary files, images, pdfs, etc.)
+            if(contentType?.includes('application/json') 
+                || contentType?.includes('text/xml')
+                || contentType?.includes('text/plain')
+                || contentType?.includes('application/xml')
+                || contentType?.includes('text/csv')
+                || contentType?.includes('text/tab-separated-values')
+                || contentType?.includes('application/javascript')
+                || contentType?.includes('text/javascript')
+                || contentType?.includes('application/ld+json')
+                || contentType?.includes('application/vnd.api+json')
+                || contentType?.includes('text/css')
+                || contentType?.includes('application/yaml')
+                || contentType?.includes('text/yaml')
+                || contentType?.includes('text/markdown')
+                || contentType?.includes('text/x-markdown')
+                || contentType?.includes('application/x-www-form-urlencoded')
+                || contentType?.includes('application/xhtml+xml')
+                || contentType?.includes('application/problem+json')
+            )
+            {
+                return await response.text();
+            }
+            else
+            {
+                const text = await response.text();
+                return new Promise((resolve) => {
+                    const requestId = crypto.randomUUID();
+                    const handler = (event) => {
+                        const data = event.data;
+                        if (data.requestId !== requestId) return;
+                        window.chrome.webview.removeEventListener('message', handler);
+                        if (data.type === 'rawToMd') {
+                            if (data.status === 0) {
+                                resolve(data.output || "");
+                            } else {
+                                resolve(text || "");
+                            }
+                        }
+                    };
+                    window.chrome.webview.addEventListener('message', handler);
+                    this.webWrap.sendMessage("rawToMd", { text, requestId });
+                });
+            }
         } catch (error) {
             console.error("CurlFetch error:", error);
             throw new Error("CurlFetch failed: " + error.message);
@@ -251,8 +307,47 @@ class AiTools {
 
     async handleWebSearch(query) {
         try {
-            const apiKey = this.config?.ai?.toolsAuth?.braveSearch?.apiKey;
-            if (!apiKey) throw new Error("Brave Search API key not configured");
+            const results = [];
+            const braveApiKey = this.config?.ai?.toolsAuth?.braveSearch?.apiKey;
+            const braveOrder = this.config?.ai?.toolsAuth?.braveSearch?.order || 1;
+
+            const tavilyApiKey  = this.config?.ai?.toolsAuth?.tavily?.apiKey;
+            const tavilyOrder = this.config?.ai?.toolsAuth?.tavily?.order || 1;
+            
+            if (braveOrder > tavilyOrder) {
+                // If Tavily has higher priority (lower order number), try Tavily first
+                if (!tavilyApiKey) {
+                    console.warn("Tavily Search API key not configured, skipping to Brave.");
+                    if (!braveApiKey) {
+                        console.warn("Brave Search API key not configured, skipping WebSearch tool.");
+                        return "";
+                    }
+                    results.push(...await this.braveSearch(braveApiKey, query));
+                } else {
+                    results.push(...await this.tavilySearch(tavilyApiKey, query));
+                }
+            } else {
+                // Brave has higher or equal priority, try Brave first
+                if (!braveApiKey) {
+                    console.warn("Brave Search API key not configured, skipping to Tavily.");
+                    if (!tavilyApiKey) {
+                        console.warn("Tavily Search API key not configured, skipping WebSearch tool.");
+                        return "";
+                    }
+                    results.push(...await this.tavilySearch(tavilyApiKey, query));
+                } else {
+                    results.push(...await this.braveSearch(braveApiKey, query));
+                }
+            }
+            return results.join('\n');
+        } catch (error) {
+            console.error("WebSearch error:", error);
+            throw new Error("WebSearch failed: " + error.message);
+        }
+    }
+
+        async braveSearch(apiKey, query) {
+            let results = [];
             const url = `https://api.search.brave.com/res/v1/web/search`;
             const headers = {
                 "Accept": "application/json",
@@ -260,7 +355,7 @@ class AiTools {
             };
             const body = JSON.stringify({
                 q: query,
-                count: 5,
+                count: 16,
                 extra_snippets: true,
                 safe_search: 'off',
                 text_decorations: false
@@ -268,33 +363,63 @@ class AiTools {
             const response = await this.webWrap.ProxyFetch(url, { method: 'POST', headers, body });
             const jsonReturn = await response.text();
             const data = JSON.parse(jsonReturn);
-
-            const results = [];
-
             // Add news results first
             if (data?.news?.results?.length) {
-                data.news.results.slice(0, 3).forEach(r => {
+                data.news.results.forEach(r => {
                     results.push(`[NEWS] Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.description}`);
                 });
             }
-
             // Add web results
             if (data?.web?.results?.length) {
-                data.web.results.slice(0, 4).forEach(r => {
+                data.web.results.forEach(r => {
                     results.push(`Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.description}`);
                 });
             }
-
-            if (results.length) {
-                return results.join('\n\n');
-            }
-        } catch (error) {
-            console.error("WebSearch error:", error);
-            throw new Error("WebSearch failed: " + error.message);
+            return results;
         }
+        async tavilySearch(apiKey, query){
+            let results = [];
+            const url = `https://api.tavily.com/search`;
+            const headers = {
+                "Accept": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+            };
+            const body = JSON.stringify({
+                 query: query,
+                 search_depth: "advanced",
+                 max_results: 10,
+                include_images: true
+            });
+            const response = await this.webWrap.ProxyFetch(url, { method: 'POST', headers, body });
+            const jsonReturn = await response.text();
+            const data = JSON.parse(jsonReturn);
+            // Add results
+            if (data?.results?.length) {
+                data.results.forEach(r => {
+                    results.push(`Title: ${r.title}\nURL: ${r.url}\nDescription: ${r.content}`);
+                });
+            }
+            if (data?.images?.length) {
+                data.images.forEach(img => {
+                    results.push(`Image: ${img}`);
+                });
+            }
+            return results;
+        }
+
+    /**
+     * Decodes HTML entities in a string using the browser's native parser.
+     * Handles &lt; &gt; &amp; &quot; &#39; and all numeric/named entities.
+     * Content without entities passes through unchanged.
+     */
+    decodeHtmlEntities(str) {
+        const ta = document.createElement('textarea');
+        ta.innerHTML = str;
+        return ta.value;
     }
 
     async handleFileWrite(filePath, content) {
+        const decoded = this.decodeHtmlEntities(content);
         return new Promise((resolve, reject) => {
             const requestId = crypto.randomUUID();
             const handler = (event) => {
@@ -310,7 +435,7 @@ class AiTools {
                 }
             };
             window.chrome.webview.addEventListener('message', handler);
-            this.webWrap.sendMessage("fileWrite", { filePath, content, requestId });
+            this.webWrap.sendMessage("fileWrite", { filePath, content: decoded, requestId });
         });
     }
 
@@ -323,7 +448,28 @@ class AiTools {
                 window.chrome.webview.removeEventListener('message', handler);
                 if (data.type === 'fileRead') {
                     if (data.status === 0) {
-                        resolve(data.output || "");
+                        const text = data.output || "";
+                        if (filePath.endsWith('.pdf') || filePath.endsWith('.docx')
+                            || filePath.endsWith('.xlsx') || filePath.endsWith('.pptx')
+                            || filePath.endsWith('.xls') || filePath.endsWith('.doc') || filePath.endsWith('.ppt')
+                            || filePath.endsWith('.jpg') || filePath.endsWith('.png') || filePath.endsWith('.gif')) {
+                            const mdHandler = (mdEvent) => {
+                                const mdData = mdEvent.data;
+                                if (mdData.requestId !== requestId) return;
+                                window.chrome.webview.removeEventListener('message', mdHandler);
+                                if (mdData.type === 'rawToMd') {
+                                    if (mdData.status === 0) {
+                                        resolve(mdData.output || "");
+                                    } else {
+                                        resolve(text || "");
+                                    }
+                                }
+                            };
+                            window.chrome.webview.addEventListener('message', mdHandler);
+                            this.webWrap.sendMessage("rawToMd", { text, requestId });
+                        } else {
+                            resolve(text);
+                        }
                     } else {
                         reject(new Error(data.output || "Failed to read file"));
                     }
@@ -353,6 +499,7 @@ class AiTools {
             this.webWrap.sendMessage("fileTextSearch", { filePath, searchText, requestId });
         });
     }
+
     async handleSendEmail(to, subject, body, attachments) {
         try {
             const apiKey = this.config?.ai?.toolsAuth?.mailerSend?.apiKey;
@@ -381,16 +528,16 @@ class AiTools {
             };
 
             if (attachments) {
-                if(attachments.length > 1) {
-                bodyObj.attachments = [];
-                attachments.forEach(element => {
-                    let attObj = {
-                        filename: element.filename,
-                        content: element.content,
-                        disposition: element.disposition || 'attachment'
-                    }
-                    bodyObj.attachments.push(attObj);
-                });
+                if (attachments.length > 1) {
+                    bodyObj.attachments = [];
+                    attachments.forEach(element => {
+                        let attObj = {
+                            filename: element.filename,
+                            content: element.content,
+                            disposition: element.disposition || 'attachment'
+                        }
+                        bodyObj.attachments.push(attObj);
+                    });
                 } else {
                     bodyObj.attachments = [{
                         filename: attachments.filename,
@@ -408,8 +555,9 @@ class AiTools {
             throw new Error("SendEmail failed: " + error.message);
         }
     }
+
     async handleSysInfo() {
-         return new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const requestId = crypto.randomUUID();
             const handler = (event) => {
                 const data = event.data;
