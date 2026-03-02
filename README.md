@@ -10,7 +10,7 @@ This project is in very early development. Expect breaking changes, missing feat
 
 OR
 
-1. Run this on PowerShell:<pre>Invoke-WebRequest -Uri "https://github.com/JoaoVKS/Pwsh.ai/releases/download/v1.0.0/Pwsh.AI_release.zip" -OutFile "temp.zip"; Expand-Archive -Path "temp.zip" -DestinationPath "."; Remove-Item "temp.zip"</pre>
+1. Run this on PowerShell:<pre>Invoke-WebRequest -Uri "https://github.com/JoaoVKS/Pwsh.ai/releases/download/v2.0.0/PWSH.AI_v2.zip" -OutFile "temp.zip"; Expand-Archive -Path "temp.zip" -DestinationPath "."; Remove-Item "temp.zip"</pre>
 2. Run the `Pwsh.AI.exe`
 
 ## Features
@@ -23,6 +23,7 @@ OR
 - Windows 10/11 for PowerShell integration.
 - .NET 10 — https://dotnet.microsoft.com/en-us/download/dotnet/10.0
 - WebView2 Runtime — https://developer.microsoft.com/en-us/microsoft-edge/webview2/
+- OpenRouter API key
 ## Tools
 The AI has access to the following built-in tools:
 
@@ -37,7 +38,6 @@ The AI has access to the following built-in tools:
 | `sendEmail` | Sends an email using the Mailersend api. Supports plain text, HTML body, and attachments. |
 
 ### Tools requirements
-- OpenRouter API key
 - Tavily or Brave Search API key
 - MailerSend API key
 
