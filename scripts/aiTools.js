@@ -418,8 +418,21 @@ class AiTools {
         return ta.value;
     }
 
+    /**
+     * Strips markdown code fences from content if present.
+     * Handles ```lang\n...\n``` and plain ``` blocks.
+     */
+    stripCodeFences(content) {
+        if (typeof content !== 'string') return content;
+        // Match optional language tag after opening fence
+        const fenced = content.match(/^```[^\n]*\n([\s\S]*?)```\s*$/);
+        if (fenced) return fenced[1];
+        return content;
+    }
+
     async handleFileWrite(filePath, content) {
-        const decoded = this.decodeHtmlEntities(content);
+        const stripped = this.stripCodeFences(content);
+        const decoded = this.decodeHtmlEntities(stripped);
         return new Promise((resolve, reject) => {
             const requestId = crypto.randomUUID();
             const handler = (event) => {
